@@ -1,7 +1,10 @@
 
 from pathlib import Path
-import graphviz
 import os
+try:
+    import graphviz
+except ImportError:
+    graphviz = None
 
 from .util import is_primitive, has_method, HORIZONTAL, VERTICAL
 
