@@ -1,6 +1,8 @@
 Sweetener
 =========
 
+[![Build Status](https://travis-ci.org/samvv/Sweetener.svg?branch=master)](https://travis-ci.org/samvv/Sweetener)
+
 Sweetener is a Python library that contains some generic algorithms and data
 structures. Extra care has been taken to make the algorithms as flexible as
 possible to fit as many use cases. If you're still missing something, do not
