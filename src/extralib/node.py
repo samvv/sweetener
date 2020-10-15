@@ -3,7 +3,7 @@ from collections import deque
 
 from .util import first, last
 from .record import Record
-from .ops import clone, expand, increment_key, decrement_key, resolve
+from .ops import clone, expand, increment_key, decrement_key, resolve, erase
 
 def breadthfirst(root, expand):
     queue = deque([ root ])
@@ -18,7 +18,7 @@ def preorder(root, expand=expand):
     while stack:
         node = stack.pop()
         yield node
-        for key, value in reversed(list(expand(node))):
+        for _key, value in reversed(list(expand(node))):
             stack.append(value)
 
 def preorder_with_paths(root, expand=expand):
@@ -46,8 +46,8 @@ class BaseNode(Record):
         super().__init__(*args, **kwargs)
         self.parent = None
         self.path = None
-        self._prev_node = False
-        self._next_node = False
+        self._prev_child = False
+        self._next_child = False
 
     def get_full_path(self):
         path = []
@@ -59,32 +59,29 @@ class BaseNode(Record):
         return path
 
     @property
-    def prev_node(self):
-        if self._prev_node != False:
-            return self._prev_node
+    def prev_child(self):
+        if self._prev_child != False:
+            return self._prev_child
         path = self.path
         while True:
             path = decrement_key(self.parent, path, expand=expand_no_basenode)
             if not path:
-                node = self.parent
-                break
+                return None
             value = resolve(self.parent, path)
             if isinstance(value, BaseNode):
                 node = value
-                while node.last_child:
-                    node = node.last_child
+                # while node.last_child:
+                #     node = node.last_child
                 break
-        self._prev_node = node
+        self._prev_child = node
         if node is not None:
-            node._next_node = self
+            node._next_child = self
         return node
 
     @property
-    def next_node(self):
-        if self._next_node != False:
-            return self._next_node
-        if self.first_child is not None:
-            return self.first_child
+    def next_child(self):
+        if self._next_child != False:
+            return self._next_child
         node = self.parent
         path = self.path
         while True:
@@ -92,17 +89,22 @@ class BaseNode(Record):
                 return None
             path = increment_key(node, path, expand=expand_no_basenode)
             if path is None:
-                path = node.path
-                node = node.parent
+                return None
+                # path = node.path
+                # node = node.parent
             else:
                 value = resolve(node, path)
                 if isinstance(value, BaseNode):
                     node = value
                     break
-        self._next_node = node
+        self._next_child = node
         return node
 
     def remove(self):
+        if self._prev_child:
+            self._prev_child._next_child = self.next_child
+        if self._next_child:
+            self._next_child._prev_child = self.prev_child
         if self.parent is not None:
             for field_name, field_value in self.parent.items():
                 for path, child in preorder_with_paths(field_value, expand=expand_no_basenode):
@@ -114,10 +116,10 @@ class BaseNode(Record):
     def replace_with(self, new_node):
         new_node.parent = self.parent
         new_node.path = self.path
-        if self._prev_node:
-            self._prev_node._next_node = new_node
-        if self._next_node:
-            self._next_node._prev_node = new_node
+        if self._prev_child:
+            self._prev_child._next_child = new_node
+        if self._next_child:
+            self._next_child._prev_child = new_node
         if self.parent is not None:
             for field_name, field_value in self.parent.items():
                 for path, child in preorder_with_paths(field_value, expand=expand_no_basenode):

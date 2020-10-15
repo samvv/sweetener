@@ -18,7 +18,12 @@ def clone(value, deep=False):
         raise NotImplementedError(f"did not know how to clone {value}")
 
 def equal(a, b):
-    if is_primitive(a) and is_primitive(b):
+    if has_method(a, 'equal') and has_method(b, 'equal'):
+        try:
+            return a.equal(b)
+        except TypeError:
+            return b.equal(a)
+    elif is_primitive(a) and is_primitive(b):
         return a == b
     elif isinstance(a, list) and isinstance(b, list):
         if len(a) != len(b):
@@ -34,11 +39,6 @@ def equal(a, b):
             if not equal(k1, k2) or not equal(v1, v2):
                 return False
         return True
-    elif has_method(type(a), 'equal') and has_method(type(b), 'equal'):
-        try:
-            return a.equal(b)
-        except TypeError:
-            return b.equal(a)
     else:
         raise TypeError(f'values {a} and {b} are not comparable')
 
@@ -65,6 +65,16 @@ def resolve(value, key):
         return value[key]
     else:
         raise TypeError(f'could not determine how to resolve key {key}')
+
+def erase(value, key):
+    if isinstance(key, int) \
+            or isinstance(key, str):
+        del value[key]
+    elif isinstance(key, list):
+        child = resolve(value, key[-1])
+        erase(child, key[-1])
+    else:
+        raise RuntimeError(f'did not know how to erase from key {key}')
 
 def increment_key(value, key, expand=expand):
 
