@@ -9,12 +9,12 @@ here = pathlib.Path(__file__).parent.resolve()
 long_description = (here / 'README.md').read_text(encoding='utf-8')
 
 setup(
-    name='extralib',
+    name='sweetener',
     version='0.1.0',
     description='A collection of useful algorithms and data structures',
     long_description=long_description,
     long_description_content_type='text/markdown',
-    url='https://github.com/samvv/python-extralib',
+    url='https://github.com/samvv/Sweetener',
     author='Sam Vervaeck',
     author_email='samvv@pm.me',
     classifiers=[
@@ -36,11 +36,11 @@ setup(
     python_requires='>=3.5, <4',
     install_requires=[],
     extras_require={  # Optional
-        'dev': ['check-manifest'],
-        'test': ['coverage'],
+        'dev': [],
+        'test': ['pytest'],
     },
     project_urls={  # Optional
-        'Bug Reports': 'https://github.com/samvv/python-extralib/issues',
-        'Source': 'https://github.com/samvv/python-extralib/',
+        'Bug Reports': 'https://github.com/samvv/Sweetener/issues',
+        'Source': 'https://github.com/samvv/Sweetener/',
     },
 )
