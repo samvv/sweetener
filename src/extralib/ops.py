@@ -42,39 +42,128 @@ def equal(a, b):
     else:
         raise TypeError(f'values {a} and {b} are not comparable')
 
+def expand(value):
+    if isinstance(value, list) or isinstance(value, tuple):
+        for i in range(0, len(value)):
+            yield i, value[i]
+    elif isinstance(value, dict):
+        yield from value.items()
+    elif has_method(value, 'expand'):
+        yield from value.expand()
+    else:
+        pass
+
 def resolve(value, key):
     if has_method(key, 'resolve'):
         return key.resolve(value)
-    return value[key]
+    if isinstance(key, list):
+        result = value
+        for element in key:
+            result = resolve(result, element)
+        return result
+    elif isinstance(key, int) or isinstance(key, str):
+        return value[key]
+    else:
+        raise TypeError(f'could not determine how to resolve key {key}')
 
-def increment_key(value, key):
+def increment_key(value, key, expand=expand):
+
     if has_method(key, 'increment'):
         return key.increment(value)
+
+    elif isinstance(key, list):
+
+        # pre-populate a list of child nodes of self.root so we can access them
+        # easily
+        values = [ value ]
+        for element in key:
+            value = resolve(value, element)
+            values.append(value)
+
+        # if we still can go deeper we should try that first
+        result = first(expand(value))
+        if result is not None:
+            element, _child = result
+            new_key = clone(key)
+            new_key.append(element)
+            return new_key
+
+        # go up until we find a key that we can increment
+        for i in reversed(range(0, len(key))):
+            element = key[i]
+            new_element = increment_key(values[i], element)
+            if new_element is not None:
+                new_key = key[:i]
+                new_key.append(new_element)
+                return new_key
+
+        # we went up beyond the root node
+        return None
+
     elif isinstance(key, int):
         return key+1 if key < len(value)-1 else None
+
     elif isinstance(key, str):
         items = iter(value.items())
-        for k, v in items:
+        for k, _v in items:
             if k == key:
                 break
         try:
             return next(items)[0]
         except StopIteration:
             return None
+
     raise RuntimeError(f'did not know how to increment key {key}')
 
-def decrement_key(value, key):
+def decrement_key(value, key, expand=expand):
+
     if has_method(key, 'decrement'):
         return key.decrement(value)
-    elif isinstance(value, list):
+
+    elif isinstance(key, list):
+
+        # pre-populate a list of child nodes of self.root so we can access them
+        # easily
+        last_value_parent = None
+        for element in key:
+            last_value_parent = value
+            value = resolve(value, element)
+
+        if not key:
+            return None
+
+        last_element = key[-1]
+        new_element = decrement_key(last_value_parent, last_element)
+
+        if new_element is None:
+            return key[:-1]
+
+        new_key = key[:-1]
+        new_key.append(new_element)
+
+        # get the rightmost node relative to the node on the new key
+        value = resolve(last_value_parent, new_element)
+        while True:
+            result = last(expand(value))
+            if result is None:
+                break
+            child_key, value = result
+            # self.elements.append(child_key)
+            new_key.append(child_key)
+
+        return new_key
+
+    elif isinstance(key, int):
         return key-1 if key > 0 else None
+
     elif isinstance(key, str):
         last_key = None
-        for k, v in value.items():
+        for k, _v in value.items():
             if k == key:
                 break
             last_key = k
         return last_key
+
     else:
         raise RuntimeError(f'did not know how to decrement key {key}')
 
@@ -121,139 +210,38 @@ def gt(v1, v2):
 def is_iterator(value):
     return has_method(value, '__next__')
 
-def expand(value):
-    if isinstance(value, list) or isinstance(value, tuple):
-        for i in range(0, len(value)):
-            yield i, value[i]
-    elif isinstance(value, dict):
-        yield from value.items()
-    elif has_method(value, 'expand'):
-        yield from value.expand()
-    else:
-        pass
+def is_first_key(root, key):
+    if isinstance(key, list):
+        return len(key) == 0
 
-class Path:
+def is_last_key(root, key):
 
-    def __init__(self, elements):
-        self.elements = elements
+    if isinstance(key, int):
+        return key == len(root)-1
 
-    def __bool__(self):
-        return len(self.elements) > 0
-
-    def __len__(self):
-        return len(self.elements)
-
-    def __iter__(self):
-        return iter(self.elements)
-
-    def __str__(self):
-        return f'Path({str(self.elements)})'
-
-    def clone(self, deep=False):
-        return Path(clone(self.elements, deep=deep))
-
-    def resolve(self, root):
-        result = root
-        for key in self.elements:
-            result = resolve(result, key)
-        return result
-
-    def is_first(self, root):
-        return len(self.elements) == 0
-
-    def is_end(self, root):
+    elif isinstance(key, list):
 
         # pre-populate a list of child nodes of self.root so we can access them
         # easily
         value = root
         values = [ value ]
-        for key in self.elements:
-            value = resolve(value, key)
+        for element in key:
+            value = resolve(value, element)
             values.append(value)
 
         # if we still can go deeper we should try that first
-        if is_expandable(value):
+        if not is_empty(expand(value)):
             return False
 
         # go up until we find a key that we can increment
-        for i in reversed(range(0, len(self.elements))):
-            key = self.elements[i]
-            new_key = increment_key(values[i], key)
-            if new_key is not None:
+        for i in reversed(range(0, len(key))):
+            element = key[i]
+            new_element = increment_key(values[i], element)
+            if new_element is not None:
                 return False
 
         # we were unable to find a new path, so this must be the end
         return True
 
-    def increment(self, root, expand=expand):
-
-        # pre-populate a list of child nodes of self.root so we can access them
-        # easily
-        value = root
-        values = [ value ]
-        for key in self.elements:
-            value = resolve(value, key)
-            values.append(value)
-
-        # if we still can go deeper we should try that first
-        result = first(expand(value))
-        if result is not None:
-            key, child = result
-            new_elements = clone(self.elements)
-            new_elements.append(key)
-            # self.elements.append(key)
-            return Path(new_elements)
-            # return
-
-        # go up until we find a key that we can increment
-        for i in reversed(range(0, len(self.elements))):
-            key = self.elements[i]
-            new_key = increment_key(values[i], key)
-            if new_key is not None:
-                # del self.elements[i:]
-                new_elements = self.elements[:i]
-                new_elements.append(new_key)
-                # self.elements.append(new_key)
-                return Path(new_elements)
-                # return
-
-        # raise RuntimeError(f'cannot increment this cursor becaue it is at its end')
-
-    def decrement(self, root, expand=expand):
-
-        # pre-populate a list of child nodes of self.root so we can access them
-        # easily
-        last_value_parent = None
-        value = root
-        for key in self.elements:
-            last_value_parent = value
-            value = resolve(value, key)
-
-        if not self.elements:
-            return None
-            # raise RuntimeError(f'cannot decrement this cursor because it is at the beginning')
-
-        key = self.elements[-1]
-        new_key = decrement_key(last_value_parent, key)
-
-        if new_key is None:
-            # del self.elements[-1]
-            # return
-            return Path(self.elements[:-1])
-
-        # del self.elements[-1]
-        # self.elements.append(new_key)
-        new_elements = self.elements[:-1]
-        new_elements.append(new_key)
-
-        # get the rightmost node relative to the node on the new key
-        value = resolve(last_value_parent, new_key)
-        while True:
-            result = last(expand(value))
-            if result is None:
-                break
-            child_key, value = result
-            # self.elements.append(child_key)
-            new_elements.append(child_key)
-
-        return Path(new_elements)
+    else:
+        raise TypeError(f'key {key}')

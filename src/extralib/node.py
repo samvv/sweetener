@@ -3,7 +3,7 @@ from collections import deque
 
 from .util import first, last
 from .record import Record
-from .ops import clone, expand, Path, increment_key, decrement_key, resolve
+from .ops import clone, expand, increment_key, decrement_key, resolve
 
 def breadthfirst(root, expand):
     queue = deque([ root ])
@@ -58,17 +58,13 @@ class BaseNode(Record):
         path.reverse()
         return path
 
-    def assign(self, path, value):
-        parent = resolve(self, Path(path[:-1]))
-        parent[path[-1]] = value
-
     @property
     def prev_node(self):
         if self._prev_node != False:
             return self._prev_node
         path = self.path
         while True:
-            path = path.decrement(self.parent, expand=expand_no_basenode)
+            path = decrement_key(self.parent, path, expand=expand_no_basenode)
             if not path:
                 node = self.parent
                 break
@@ -94,7 +90,7 @@ class BaseNode(Record):
         while True:
             if node is None:
                 return None
-            path = path.increment(node, expand=expand_no_basenode)
+            path = increment_key(node, path, expand=expand_no_basenode)
             if path is None:
                 path = node.path
                 node = node.parent
@@ -105,6 +101,15 @@ class BaseNode(Record):
                     break
         self._next_node = node
         return node
+
+    def remove(self):
+        if self.parent is not None:
+            for field_name, field_value in self.parent.items():
+                for path, child in preorder_with_paths(field_value, expand=expand_no_basenode):
+                    if child == self:
+                        path.insert(0, field_name)
+                        value = resolve(self.parent, path[:-1])
+                        erase(value, path[-1])
 
     def replace_with(self, new_node):
         new_node.parent = self.parent
@@ -118,7 +123,8 @@ class BaseNode(Record):
                 for path, child in preorder_with_paths(field_value, expand=expand_no_basenode):
                     if child == self:
                         path.insert(0, field_name)
-                        self.parent.assign(path, new_node)
+                        value = resolve(self.parent, path[:-1])
+                        value[path[-1]] = new_node
 
     @property
     def first_child(self):
@@ -140,7 +146,7 @@ def expand_no_basenode(value):
 
 def set_parent_nodes(node, parent=None, path=[]):
     node.parent = parent
-    node.path = Path(path)
+    node.path = path
     for field_name, field_value in node.items():
         for new_path, child in preorder_with_paths(field_value, expand=expand_no_basenode):
             if isinstance(child, BaseNode):

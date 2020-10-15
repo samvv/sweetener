@@ -1,13 +1,13 @@
 
 import pytest
 
-from .ops import Path, resolve, increment_key, decrement_key
+from .ops import resolve, increment_key, decrement_key
 
 def test_path_increment():
     l2 = [5]
     l1 = [3, 4, l2]
     root = [1, 2, l1, 6]
-    p0 = Path([])
+    p0 = []
     assert(resolve(root, p0) == root)
     p1 = increment_key(root, p0)
     assert(resolve(root, p1) == 1)
@@ -32,7 +32,7 @@ def test_path_decrement():
     l2 = [5]
     l1 = [3, 4, l2]
     root = [1, 2, l1, 6]
-    p0 = Path([3])
+    p0 = [3]
     assert(resolve(root, p0) == 6)
     p1 = decrement_key(root, p0)
     assert(resolve(root, p1) == 5)
