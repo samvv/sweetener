@@ -86,3 +86,20 @@ def test_node_prev_node():
     assert(n2.prev_node == n1)
     assert(n3.prev_node == n2)
 
+def test_replace_with_node():
+
+    n00 = Leaf(0)
+    n0 = NAry([ n00 ])
+    n1 = Leaf(1)
+    n2 = Leaf(2)
+    n3 = Leaf(3)
+    n4 = Leaf(4)
+    root = NAry([ n0, n1, n2, n3 ])
+
+    set_parent_nodes(root)
+
+    n00.replace_with(n4)
+
+    assert(n4.parent == n0)
+    assert(n0.children[0] == n4)
+

@@ -110,7 +110,7 @@ def gte(v1, v2):
     return not lt(v1, v2)
 
 def gt(v1, v2):
-    return not le(v1, v2)
+    return not lte(v1, v2)
 
 # def is_expandable(value):
 #     return isinstance(value, list) \
@@ -257,4 +257,3 @@ class Path:
             new_elements.append(child_key)
 
         return Path(new_elements)
-

@@ -7,8 +7,6 @@ from .serde import serialize, deserialize, serializable
 from .util import HORIZONTAL, VERTICAL
 from .ops import clone, equal
 
-TYPE_TAG_KEY_NAME = '__type__'
-
 def is_list_type(ty):
     return hasattr(ty, '__origin__') and ty.__origin__ == list
 
@@ -151,6 +149,9 @@ class Record:
     def __getitem__(self, key):
         return self.fields[key]
 
+    def __setitem__(self, key, value):
+        self.fields[key] = value
+
     def resolve(self, key):
         return self.fields[key]
 
@@ -194,14 +195,14 @@ class Record:
     def equal(a, b):
         if type(a) != type(b):
             return False
-        for name, ty in typing.get_type_hints(a).items():
+        for name, _ty in typing.get_type_hints(a).items():
             if not equal(getattr(a, name), getattr(b, name)):
                 return False
         return True
 
     def plot(self, plot):
         node = plot.add_node(label=self.__class__.__name__, shape='record', direction=VERTICAL)
-        for i, (key, value) in enumerate(self.fields.items()):
+        for (key, value) in self.fields.items():
             p = plot(value, key=key)
             if p.is_embeddable:
                 row = node.label.add_cells(direction=HORIZONTAL, key=f'field-{key}')

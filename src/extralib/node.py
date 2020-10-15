@@ -40,13 +40,6 @@ def postorder(root, expand):
     for node in reversed(stack_2):
         yield node
 
-def satisfies_type(val, ty):
-    if is_none_type(ty):
-        return val is None
-    elif is_list_type(ty):
-        return isinstance(val, list) and all(satisfies_type(el, ty.__args__[0]) for el in val)
-    raise NotImplementedError("type checking for the given type is not implemented")
-
 class BaseNode(Record):
 
     def __init__(self, *args, **kwargs):
@@ -60,10 +53,14 @@ class BaseNode(Record):
         path = []
         node = self
         while node is not None:
-            for element in reversed(node.path):
+            for element in reversed(node.path.elements):
                 path.append(element)
-        path.revese()
+        path.reverse()
         return path
+
+    def assign(self, path, value):
+        parent = resolve(self, Path(path[:-1]))
+        parent[path[-1]] = value
 
     @property
     def prev_node(self):
@@ -82,6 +79,8 @@ class BaseNode(Record):
                     node = node.last_child
                 break
         self._prev_node = node
+        if node is not None:
+            node._next_node = self
         return node
 
     @property
@@ -106,26 +105,20 @@ class BaseNode(Record):
                     break
         self._next_node = node
         return node
-        if self._next_node != False:
-            return self._next_node
-        if self.first_child is not None:
-            return self.first_child
-        node = self.parent
-        path = self.path
-        while True:
-            if node is None:
-                return None
-            path = path.increment(node, expand=expand_no_basenode)
-            if path is None:
-                path = node.path
-                node = node.parent
-            else:
-                value = resolve(node, path)
-                if isinstance(value, BaseNode):
-                    node = value
-                    break
-        self._next_node = node
-        return node
+
+    def replace_with(self, new_node):
+        new_node.parent = self.parent
+        new_node.path = self.path
+        if self._prev_node:
+            self._prev_node._next_node = new_node
+        if self._next_node:
+            self._next_node._prev_node = new_node
+        if self.parent is not None:
+            for field_name, field_value in self.parent.items():
+                for path, child in preorder_with_paths(field_value, expand=expand_no_basenode):
+                    if child == self:
+                        path.insert(0, field_name)
+                        self.parent.assign(path, new_node)
 
     @property
     def first_child(self):
@@ -136,7 +129,7 @@ class BaseNode(Record):
         return last(self.get_child_nodes())
 
     def get_child_nodes(self):
-        for field_name, field_value in self.items():
+        for _field_name, field_value in self.items():
             for child in preorder(field_value, expand=expand_no_basenode):
                 if isinstance(child, BaseNode):
                     yield child
