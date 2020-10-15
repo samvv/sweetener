@@ -1,6 +1,6 @@
 
+import sys
 import typing
-import json
 from inspect import isclass
 
 from .serde import serialize, deserialize, serializable
@@ -8,7 +8,9 @@ from .util import HORIZONTAL, VERTICAL
 from .ops import clone, equal
 
 def is_list_type(ty):
-    return hasattr(ty, '__origin__') and ty.__origin__ == list
+    if not hasattr(ty, '__origin__'):
+        return False
+    return ty.__origin__ == typing.List if sys.version_info.minor <= 6 else ty.__origin__ == list
 
 def is_union_type(ty):
     return hasattr(ty, '__origin__') and ty.__origin__ == typing.Union
@@ -46,9 +48,7 @@ def get_index_type(ty):
         return None
 
 def satisfies_type(val, ty):
-    if isclass(ty):
-        return isinstance(val, ty)
-    elif ty == typing.Any:
+    if ty == typing.Any:
         return True
     elif is_none_type(ty):
         return val is None
@@ -58,6 +58,8 @@ def satisfies_type(val, ty):
         return any(satisfies_type(val, arg) for arg in ty.__args__)
     elif is_tuple_type(ty):
         return isinstance(val, tuple) and all(satisfies_type(el, type_arg) for el, type_arg in zip(val, ty.__args__))
+    elif isclass(ty):
+        return isinstance(val, ty)
     raise NotImplementedError(f"type checking for the {ty} is not implemented")
 
 # def get_all_annotations(cls):
