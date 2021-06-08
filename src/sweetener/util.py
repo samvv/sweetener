@@ -75,18 +75,24 @@ def is_primitive(value):
         or isinstance(value, float) \
         or isinstance(value, int)
 
-def pretty_enum(elements):
+def pretty_enum(elements, default='nothing'):
+    elements = iter(elements)
     try:
         element = next(elements)
     except StopIteration:
-        raise ValueError(f'not enough elements provided')
+        return default
     result = str(element)
-    prev_element = None
-    for element in elements:
+    try:
+        prev_element = next(elements)
+    except StopIteration:
+        return result
+    while True:
+        try:
+            element = next(elements)
+        except StopIteration:
+            break
         result += ', ' + prev_element
         prev_element = element
-    if prev_element is None:
-        return result
     return result + ' or ' + prev_element
 
 def swap(a, i, j):
@@ -188,19 +194,65 @@ def quicksort(arr, low=None, high=None, cmp=lambda a, b: a < b):
         quicksort(arr, low, pi-1, cmp=cmp)
         quicksort(arr, pi+1, high, cmp=cmp)
 
-# def eq(v1, v2):
-#     if (isinstance(v1, str) and isinstance(v2, str)) \
-#             or (isinstance(v1, bool) and isinstance(v2, bool)) \
-#             or (isinstance(v1, int) and isinstance(v2, int)) \
-#             or (isinstance(v1, float) and isinstance(v2, float)):
-#         return v1 == v2
-#     elif (isinstance(v1, tuple) and isinstance(v2, tuple)) \
-#             or (isinstance(v1, list) and isinstance(v2, list)):
-#         if len(v1) != len(v2):
-#             return False
-#         for i in range(0, len(v1)):
-#             if not eq(v1[i], v2[i]):
-#                 return False
-#         return True
-#     else:
-#         return False
+def eq(v1, v2):
+    if (isinstance(v1, str) and isinstance(v2, str)) \
+            or (isinstance(v1, bool) and isinstance(v2, bool)) \
+            or (isinstance(v1, int) and isinstance(v2, int)) \
+            or (isinstance(v1, float) and isinstance(v2, float)):
+        return v1 == v2
+    elif (isinstance(v1, tuple) and isinstance(v2, tuple)) \
+            or (isinstance(v1, list) and isinstance(v2, list)):
+        if len(v1) != len(v2):
+            return False
+        for i in range(0, len(v1)):
+            if not eq(v1[i], v2[i]):
+                return False
+        return True
+    else:
+        return False
+
+def is_char(value):
+    return isinstance(value, str) \
+        and len(value) == 1
+
+TYPE_INDICES = [bool, int, float, str, tuple, list]
+
+# NOTE We explicitly distinguish between a str and a char because string
+# comparison in python sometimes yields incorrect results.
+def lt(v1, v2):
+    if isinstance(v1, bool) and isinstance(v2, bool): \
+        return v1 < v2
+    if isinstance(v1, int) and isinstance(v2, int): \
+        return v1 < v2
+    if isinstance(v1, float) and isinstance(v2, float): \
+        return v1 < v2
+    if is_char(v1) and is_char(v2):
+        return v1 < v2
+    elif (isinstance(v1, tuple) and isinstance(v2, tuple)) \
+            or (isinstance(v1, list) and isinstance(v2, list)) \
+            or (isinstance(v1, str) and isinstance(v2, str)):
+        if (len(v1) != len(v2)):
+            return len(v1) < len(v2)
+        for el1, el2 in zip(v1, v2):
+            if lt(el1, el2):
+                return True
+        return False
+    else:
+        return TYPE_INDICES.index(v1.__class__) < TYPE_INDICES.index(v2.__class__)
+
+def le(v1, v2):
+    return lt(v1, v2) or eq(v1, v2)
+
+def ge(v1, v2):
+    return not lt(v1, v2)
+
+def gt(v1, v2):
+    return not le(v1, v2)
+
+def omit(mapping, *keys):
+     result = dict()
+     for k, v in mapping.items():
+         if k not in keys:
+             result[k] = v
+     return result
+

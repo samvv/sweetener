@@ -136,6 +136,12 @@ class BaseNode(Record):
     def last_child(self):
         return last(self.get_child_nodes())
 
+    def get_all_child_nodes(self):
+        for _field_name, field_value in self.items():
+            for child in preorder(field_value):
+                if isinstance(child, BaseNode):
+                    yield child
+
     def get_child_nodes(self):
         for _field_name, field_value in self.items():
             for child in preorder(field_value, expand=expand_no_basenode):

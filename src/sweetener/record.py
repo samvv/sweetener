@@ -1,10 +1,10 @@
 
 import sys
 import typing
-from inspect import isclass
+from inspect import isclass, getmro
 
 from .serde import serialize, deserialize, serializable
-from .util import HORIZONTAL, VERTICAL
+from .util import HORIZONTAL, VERTICAL, pretty_enum
 from .ops import clone, equal
 
 def is_list_type(ty):
@@ -92,6 +92,14 @@ def find_subclass_named(name, cls):
             return subcls
     raise NameError(f"class named '{name}' not found")
 
+def get_defaults(cls):
+    result = dict()
+    for pcls in getmro(cls):
+        for k, v in pcls.__dict__.items():
+            if k not in result and not k.startswith('__'):
+                result[k] = v
+    return result
+
 @serializable
 class Record:
 
@@ -99,7 +107,7 @@ class Record:
 
         fields = self.__dict__['fields'] = dict()
         type_hints = typing.get_type_hints(self.__class__)
-        defaults = dict((name, self.__class__.__dict__[name]) for name, ty in type_hints.items() if name in self.__class__.__dict__)
+        defaults = get_defaults(self.__class__)
         i = 0
 
         for name, ty in type_hints.items():
@@ -117,7 +125,9 @@ class Record:
                 raise TypeError(f"{value} did not satisfy type {ty}")
             fields[name] = value
 
-        for name, default in defaults.items():
+        for name, ty in type_hints.items():
+            if name not in defaults:
+                continue
             ty = type_hints[name]
             if name in kwargs:
                 value = kwargs[name]
@@ -126,7 +136,7 @@ class Record:
                 value = args[i]
                 i += 1
             else:
-                value = default
+                value = defaults[name]
             if not satisfies_type(value, ty):
                 raise TypeError(f"{value} did not satisfy type {ty}")
             fields[name] = value
@@ -140,7 +150,7 @@ class Record:
             #     if name not in fields:
             #         missing.append(name)
             # raise TypeError("missing arguments: {pretty_enum(")
-            raise TypeError("excess arguments received: {len(args)} positional, {pretty_enum(kwargs.keys())}")
+            raise TypeError(f"excess arguments received: {len(args)} positional, {pretty_enum(kwargs.keys())}")
 
     def get_field_names(self):
         return self.fields.keys()
