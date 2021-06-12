@@ -7,7 +7,7 @@ try:
 except ImportError:
     graphviz = None
 
-from . import equal
+from .compare import eq
 from .record import Record
 from .visual import visualize
 
@@ -63,11 +63,11 @@ def test_records_equal():
     r1 = FirstRecord(1, 'a')
 
     r2 = FirstRecord(1, 'a')
-    assert(equal(r1, r2))
+    assert(eq(r1, r2))
 
     r3 = SecondRecord(2, 'b')
-    assert(not equal(r1, r3))
+    assert(not eq(r1, r3))
 
     r4 = SecondRecord(1, 'a')
-    assert(not equal(r1, r4))
+    assert(not eq(r1, r4))
 

@@ -6,9 +6,13 @@ try:
 except ImportError:
     graphviz = None
 
-from .util import is_primitive, has_method, HORIZONTAL, VERTICAL
+from .common import isprimitive
+from .clazz import hasmethod
 
-GRAPHS_DIR = Path('.pygraphs')
+HORIZONTAL = 1
+VERTICAL   = 2
+
+_GRAPHS_DIR = Path('.pygraphs')
 
 def invert_direction(direction):
     if direction == HORIZONTAL:
@@ -61,7 +65,7 @@ class Plot(PlotElement):
         return ref
 
     def __call__(self, value, key):
-        if is_primitive(value):
+        if isprimitive(value):
             return PlotText(str(value), key=key)
         elif isinstance(value, list):
             table = PlotCells(direction=VERTICAL, key=key)
@@ -91,7 +95,7 @@ class Plot(PlotElement):
                     text = row.add_text(i, key=f'{i}-ref')
                     self.add_edge(text, p2)
             return table
-        elif has_method(value, 'plot'):
+        elif hasmethod(value, 'plot'):
             #  if value in self.visited:
             #      result = self.visited[value]
             #      if result.reference is None:
@@ -210,12 +214,12 @@ def visualize(value, name=None, view=True):
         else:
             raise NotImplementedError(f"did not know how to update IDs of {element}")
 
-    GRAPHS_DIR.mkdir(parents=True, exist_ok=True)
+    _GRAPHS_DIR.mkdir(parents=True, exist_ok=True)
     if name is None:
-        i = len(list(GRAPHS_DIR.iterdir()))
-        filename = GRAPHS_DIR / f"temp{i}.gv"
+        i = len(list(_GRAPHS_DIR.iterdir()))
+        filename = _GRAPHS_DIR / f"temp{i}.gv"
     else:
-        filename = GRAPHS_DIR / f"{name}.gv"
+        filename = _GRAPHS_DIR / f"{name}.gv"
 
     dot = graphviz.Digraph(filename=filename)
 

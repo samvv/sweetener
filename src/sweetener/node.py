@@ -1,7 +1,7 @@
 
 from collections import deque
 
-from .util import first, last
+from .iterator import first, last
 from .record import Record
 from .ops import clone, expand, increment_key, decrement_key, resolve, erase
 

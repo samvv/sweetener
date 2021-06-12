@@ -4,8 +4,10 @@ import typing
 from inspect import isclass, getmro
 
 from .serde import serialize, deserialize, serializable
-from .util import HORIZONTAL, VERTICAL, pretty_enum
-from .ops import clone, equal
+from .util import pretty_enum
+from .visual import HORIZONTAL, VERTICAL
+from .ops import clone
+from .compare import eq
 
 def is_list_type(ty):
     if not hasattr(ty, '__origin__'):
@@ -200,15 +202,16 @@ class Record:
     def serialize(self):
         return dict((k, serialize(v)) for k, v in self.fields.items())
 
+    @staticmethod
     def deserialize(value, cls):
         kwargs = dict((k, deserialize(v)) for k, v in value.items())
         return cls(**kwargs)
 
-    def equal(a, b):
-        if type(a) != type(b):
+    def equal(self, other):
+        if type(self) != type(other):
             return False
-        for name, _ty in typing.get_type_hints(a).items():
-            if not equal(getattr(a, name), getattr(b, name)):
+        for name, _ty in typing.get_type_hints(self).items():
+            if not eq(getattr(self, name), getattr(other, name)):
                 return False
         return True
 

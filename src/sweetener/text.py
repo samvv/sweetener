@@ -1,4 +1,7 @@
 
+import math
+import colorama
+
 class LineIndex:
 
     def __init__(self, text):
@@ -74,4 +77,109 @@ class LineIndex:
     def count_lines(self):
         self._count_lines_until_offset(len(self.text)-1)
         return len(self.lines)+1
+
+class TextFile:
+
+    def __init__(self, name, text):
+        self.name = name
+        self.text = text
+        self._line_index = LineIndex(text)
+
+    def get_offset(self, line):
+        return self._line_index.get_offset(line)
+
+    def get_column(self, offset):
+        return self._line_index.get_column(offset)
+
+    def get_line(self, offset):
+        return self._line_index.get_line(offset)
+
+    def count_lines(self):
+        return self._line_index.count_lines()
+
+    def __getitem__(self, index):
+        return self.text[index]
+
+def count_digits(n):
+    return 1 if n == 0 or n == 1 else math.ceil(math.log10(n+1))
+
+def print_excerpt(text, span, lines_pre=1, lines_post=1, gutter_width=None):
+
+    if not isinstance(text, TextFile):
+        text = TextFile(None, text)
+
+    out = ''
+
+    start_line = text.get_line(span[0])
+    end_line = text.get_line(span[1])
+    start_line_offset = text.get_offset(start_line)
+    end_line_offset = text.get_offset(end_line+1)
+    start_column = span[0] - start_line_offset + 1
+    end_column = span[1] - text.get_offset(end_line) + 1
+    pre_line = max(start_line-lines_pre, 1)
+    pre_offset = text.get_offset(pre_line)
+    post_offset = text.get_offset(end_line+lines_post+1)
+
+    if gutter_width is None:
+        gutter_width = max(2, count_digits(end_line+lines_post))
+
+    # initial position in text
+    line = pre_line
+    column = 1
+    offset = 0
+
+    def print_guttered(start, end):
+        nonlocal out, line
+        for i in range(start, end):
+            ch = text[i]
+            if ch == '\n':
+                out += '\n'
+                line += 1
+                print_gutter(line)
+            else:
+                out += ch
+
+    def print_gutter(line=None):
+        nonlocal out
+        num_width = 0 if line is None else count_digits(line)
+        out += colorama.Fore.BLACK + colorama.Back.WHITE
+        for i in range(0, gutter_width - num_width):
+            out += ' '
+        if line is not None:
+            out += str(line)
+        out += colorama.Fore.RESET + colorama.Back.RESET + ' '
+
+    def print_underline():
+        nonlocal out
+        k = start_column if line == start_line else 1
+        l = end_column if line == end_line else column
+        if l - k > 0:
+            out += '\n'
+            print_gutter()
+            for i in range(0, k-1):
+                out += ' '
+            out += colorama.Fore.RED
+            for i in range(k-1, l-1):
+                out += '~'
+            out += colorama.Fore.RESET
+
+    print_gutter(line)
+
+    print_guttered(pre_offset, start_line_offset)
+
+    for i in range(start_line_offset, end_line_offset):
+        ch = text[i]
+        if ch == '\n':
+            print_underline()
+            line += 1
+            column = 1
+            out += ch
+            print_gutter(line)
+        else:
+            column += 1
+            out += ch
+
+    print_guttered(end_line_offset, post_offset)
+
+    return out
 

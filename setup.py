@@ -34,7 +34,7 @@ setup(
     package_dir={'': 'src'},
     packages=find_packages(where='src'),
     python_requires='>=3.5, <4',
-    install_requires=[],
+    install_requires=['colorama'],
     extras_require={  # Optional
         'dev': [],
         'test': ['pytest'],
