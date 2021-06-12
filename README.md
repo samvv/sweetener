@@ -13,7 +13,7 @@ In particular, this library contains the following goodies:
   - **Generic procedures** like `clone`, `equal` and `lte` that work on most
     types in the standard library and you can specialize for your own types.
   - A **typed record type** that allows you to very quickly define a new data
-    structure with some built-in validation.
+    structure and have it automatically validated.
   - A **generic representation for parse trees** that allows you to define,
     query and manipulate individual nodes with ease.
 
