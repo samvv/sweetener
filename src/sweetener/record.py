@@ -1,77 +1,143 @@
 
-import sys
 import typing
-from inspect import isclass, getmro
+from functools import cmp_to_key
+import collections.abc
+import inspect
 
-from .serde import serialize, deserialize, serializable
-from .util import pretty_enum
-from .visual import HORIZONTAL, VERTICAL
-from .ops import clone
-from .compare import eq
+from .logging import warn
+from .util import get_class_name, get_type_index, lift_key, reflect, make_comparator
 
-def is_list_type(ty):
-    if not hasattr(ty, '__origin__'):
-        return False
-    return ty.__origin__ == typing.List if sys.version_info.minor <= 6 else ty.__origin__ == list
+T = typing.TypeVar('T')
 
-def is_union_type(ty):
-    return hasattr(ty, '__origin__') and ty.__origin__ == typing.Union
+_primitive_types = [ type(None), bool, int, float, str ]
 
-def is_none_type(ty):
-    return ty == type(None)
+def satisfies_type(value, ty):
 
-def flatten_union_type(ty):
-    if is_union_type(ty):
-        return ((el2_ty for el_ty in ty.__args__ for el2_ty in flatten_union_type(el_ty)))
-    else:
-        return [ty]
+    if ty is None:
+        return value is None
 
-def is_type_optional(ty):
-    return any(is_none_type(el_ty) for el_ty in flatten_union_type(ty))
-
-def get_element_type(ty):
-    if is_list_type(ty):
-        return ty.__args__[0]
-    elif is_union_type(ty):
-        return next(get_element_type(el_ty) for el_ty in flatten_union_type(ty) if not is_none_type(el_ty))
-    else:
-        return ty
-
-def is_tuple_type(ty):
-    return hasattr(ty, '__origin__') and ty.__origin__ == tuple
-
-def is_special_type(ty):
-    return ty == typing.Any or is_none_type(ty)
-
-def get_index_type(ty):
-    if is_list_type(ty):
-        return int
-    else:
-        return None
-
-def satisfies_type(val, ty):
-    if ty == typing.Any:
+    if ty is typing.Any:
         return True
-    elif is_none_type(ty):
-        return val is None
-    elif is_list_type(ty):
-        return isinstance(val, list) and all(satisfies_type(el, ty.__args__[0]) for el in val)
-    elif is_union_type(ty):
-        return any(satisfies_type(val, arg) for arg in ty.__args__)
-    elif is_tuple_type(ty):
-        return isinstance(val, tuple) and all(satisfies_type(el, type_arg) for el, type_arg in zip(val, ty.__args__))
-    elif isclass(ty):
-        return isinstance(val, ty)
-    raise NotImplementedError(f"type checking for the {ty} is not implemented")
 
-# def get_all_annotations(cls):
-#     annotations = dict()
-#     prev_annotations = None
-#     for cls in reversed(cls.__mro__):
-#         if hasattr(cls, '__annotations__') and cls.__annotations__ != prev_annotations:
-#             prev_annotations = cls.__annotations__
-#             for name, ty in cls.__annotations__.items():
-#                 yield SimpleNamspace(name, ty, name in cls.__dict__, cls.__dict__.get(name))
+    origin = typing.get_origin(ty)
+
+    if origin is None:
+        return isinstance(value, ty)
+
+    args = typing.get_args(ty)
+
+    if origin is typing.Union:
+        return any(satisfies_type(value, arg) for arg in args)
+
+    if origin is dict:
+        key_type = args[0]
+        value_type = args[1]
+        if not isinstance(value, dict):
+            return False
+        for k, v in value.items():
+            if not satisfies_type(k, key_type) or not satisfies_type(v, value_type):
+                return False
+        return True
+
+    if origin is set:
+        element_type = args[0]
+        return isinstance(value, set) \
+            and all(satisfies_type(v, element_type) for v in value)
+
+    if origin is list:
+        element_type = args[0]
+        return isinstance(value, list) \
+            and all(satisfies_type(v, element_type) for v in value)
+
+    if origin is collections.abc.Callable:
+        # TODO check whether the parameter types are satisfied
+        return callable(value)
+
+    if origin is tuple:
+        if not isinstance(value, tuple) or len(value) != len(args):
+            return False
+        i = 0
+        for element in value:
+            element_type = args[i]
+            if element_type == Ellipsis:
+                element_type = args[i-1]
+            else:
+                i += 1
+            if not satisfies_type(element, element_type):
+                return False
+        return True
+
+    warn(f'no type-checking logic defined for {origin}')
+    return isinstance(value, origin)
+
+def _get_all_union_elements(value):
+
+    origin = typing.get_origin(value)
+
+    if origin is typing.Union:
+        args = typing.get_args(value)
+        for arg in args:
+            yield from _get_all_union_elements(arg)
+        return
+
+    yield value
+
+def _lt_helper_dict(a, b):
+    keys_a = list(a.keys())
+    keys_a.sort()
+    keys_b = list(b.keys())
+    keys_b.sort()
+    i1 = 0
+    i2 = 0
+    is_equal = True
+    while True:
+        if i1 == len(keys_a) or i2 == len(keys_b):
+            break
+        k1 = keys_a[i1]
+        k2 = keys_b[i2]
+        if _lt_helper(k1, k2):
+            is_equal = False
+            i1 += 1
+        elif is_equal and _lt_helper(k2, k1):
+           return False
+        else:
+            v1 = a[k1]
+            v2 = b[k2]
+            if _lt_helper(v1, v2):
+                is_equal = False
+            elif is_equal and _lt_helper(v2, v1):
+                return False
+            i1 += 1
+            i2 += 1
+    if is_equal:
+        return len(keys_a) < len(keys_b)
+    return True
+
+def _lt_helper_sequence(a, b):
+    is_equal = True
+    for v1, v2 in zip(a, b):
+        if _lt_helper(v1, v2):
+            is_equal = False
+        elif is_equal and _lt_helper(v2, v1):
+            return False
+    if is_equal:
+        return len(a) < len(b)
+    return True
+
+def _lt_helper(a, b):
+    i1 = get_type_index(a)
+    i2 = get_type_index(b)
+    if i1 != i2:
+        return i1 < i2
+    if a is None:
+        # b must be None
+        return False
+    if isinstance(a, dict):
+        return _lt_helper_dict(a, b)
+    if isinstance(a, list) \
+            or isinstance(a, tuple):
+        return _lt_helper_sequence(a, b)
+    return a < b
 
 def has_annotation(cls, expected):
     prev_annotations = None
@@ -96,18 +162,258 @@ def find_subclass_named(name, cls):
 
 def get_defaults(cls):
     result = dict()
-    for pcls in getmro(cls):
+    for pcls in inspect.getmro(cls):
         for k, v in pcls.__dict__.items():
             if k not in result and not k.startswith('__'):
                 result[k] = v
     return result
 
-@serializable
+_class_coercions = list()
+
+def add_coercion(cls, proc):
+    assert(cls not in _class_coercions)
+    _class_coercions.append((cls, proc))
+
+class CoercionError(RuntimeError):
+    pass
+
+def get_all_superclasses(cls):
+    yield cls
+    for parent_cls in cls.__bases__:
+        yield from get_all_superclasses(parent_cls)
+
+def get_common_superclass(classes):
+    cls = classes[0]
+    for parent_cls in get_all_superclasses(cls):
+        if all(issubclass(cls, parent_cls) for cls in classes):
+            return parent_cls
+
+def coerce(value, ty):
+
+    if ty is type(None):
+        if value is not None:
+            raise CoercionError(f'could not coerce {value} to NoneType because the only allowed value is None')
+        return None
+
+    origin = typing.get_origin(ty)
+
+    if origin is None:
+
+        if isinstance(value, ty):
+            return value
+
+        attempts = []
+
+        for cls, proc in _class_coercions:
+            if ty is cls or issubclass(ty, cls):
+                attempts.append((cls, proc))
+
+        attempts.sort(key=lift_key(cmp_to_key(make_comparator(issubclass)), 0))
+
+        for cls, proc in attempts:
+            try:
+                return proc(value, ty)
+            except CoercionError:
+                pass
+
+        raise CoercionError(f'could not coerce {value} to {ty} because no known coercions exist for {ty}')
+
+    if origin is typing.Union:
+        classes = []
+        has_none = False
+        has_non_cls = False
+        for arg in _get_all_union_elements(ty):
+            if arg is type(None):
+                has_none = True
+                continue
+            origin = typing.get_origin(arg)
+            if origin is not None:
+                has_non_cls = True
+            classes.append(arg)
+        if value is None:
+            if not has_none:
+                raise CoercionError(f'could not coerce None to {ty} because None is not allowed')
+            return None
+        if has_non_cls:
+            raise CoercionError(f'could not coerce {value} to {ty} because {arg} cannot be joined with the other typing.Union elements')
+        cls = get_common_superclass(classes)
+        if cls is None:
+            raise CoercionError(f'could not coerce {value} to {ty} because {ty} can be multiple unrelated types')
+        return coerce(value, cls)
+
+    args = typing.get_args(ty)
+
+    if origin is list:
+        if value is None:
+            return []
+        element_type = args[0]
+        return list(coerce(element, element_type) for element in value)
+
+    if origin is tuple:
+        if value is None:
+            return tuple(coerce(None, element_type) for element_type in args)
+        return tuple(coerce(element, element_type) for element, element_type in zip(value, args))
+
+
+    raise RuntimeError(f'cannot coerce {value} into {ty} because {origin} is an unsupported typing')
+
+class RecordFields:
+
+    def __init__(self, record) -> None:
+        self.record = record
+
+    def __contains__(self, key: str):
+        hints = typing.get_type_hints(type(self.record))
+        return key in hints
+
+    def __getitem__(self, key: str) -> typing.Any:
+        hints = typing.get_type_hints(type(self.record))
+        if key not in hints:
+            raise KeyError(f"key '{key}' is not found in the fields of {self.record}")
+        return getattr(self.record, key)
+
+    def __setitem__(self, key: str, new_value: typing.Any):
+        hints = typing.get_type_hints(type(self.record))
+        if key not in hints:
+            raise KeyError(f"key '{key}' is not found in the fields of {self.record}")
+        setattr(self.record, key, new_value)
+
+    def keys(self):
+        hints = typing.get_type_hints(type(self.record))
+        return hints.keys()
+
+    def values(self):
+        for key in typing.get_type_hints(type(self.record)):
+            yield getattr(self.record, key)
+
+    def items(self):
+        for name in typing.get_type_hints(type(self.record)):
+            yield name, getattr(self.record, name)
+
+def pretty_enum(elements: typing.List[str]) -> str:
+    if not elements:
+        return 'nothing'
+    if len(elements) == 1:
+        return elements[0]
+    out = elements[0]
+    for element in elements[1:-1]:
+        out += f', {element}'
+    out += f' and {elements[-1]}'
+    return out
+
+
+def transform(value: T, proc) -> T:
+
+    new_value = proc(value)
+    if new_value != value:
+        return new_value
+
+    for cls in _primitive_types:
+        if isinstance(value, cls):
+            return value
+
+    if isinstance(value, tuple):
+        new_elements = []
+        has_new_element = False
+        for element in value:
+            new_element = transform(element, proc)
+            if new_element != element:
+                has_new_element = True
+            new_elements.append(new_element)
+        if not has_new_element:
+            return value
+        return tuple(new_elements)
+
+    if isinstance(value, list):
+        new_elements = []
+        has_new_element = False
+        for element in value:
+            new_element = transform(element, proc)
+            if new_element != element:
+                has_new_element = True
+            new_elements.append(new_element)
+        if not has_new_element:
+            return value
+        return new_elements
+
+    if isinstance(value, set):
+        new_elements = set()
+        has_new_element = False
+        for element in value:
+            new_element = transform(element, proc)
+            if new_element != element:
+                has_new_element = True
+            new_elements.add(new_element)
+        if not has_new_element:
+            return value
+        return new_elements
+
+    if isinstance(value, Record):
+        cls = value.__class__
+        kwargs = dict()
+        has_new_v = False
+        for k, v in value.fields.items():
+            new_v = transform(v, proc)
+            if new_v != v:
+                has_new_v = True
+            kwargs[k] = new_v
+        if not has_new_v:
+            return value
+        return cls(**kwargs)
+
+    if isinstance(value, dict):
+        new_value = dict()
+        has_new_v = False
+        for k, v in value.items():
+            new_v = transform(v, proc)
+            if new_v != v:
+                has_new_v = True
+            new_value[k] = new_v
+        if not has_new_v:
+            return value
+        return new_value
+
+    raise RuntimeError(f'unexpected {value}')
+
+def clone(value: T, deep=False) -> T:
+
+    for cls in _primitive_types:
+        if isinstance(value, cls):
+            return value
+
+    if isinstance(value, object) and hasattr(value, 'clone'):
+        return value.clone()
+
+    if isinstance(value, dict):
+        return dict((k, clone(v, True) if deep else v) for k, v in value.items())
+
+    if isinstance(value, list):
+        return list(clone(el, True) if deep else el for el in value)
+
+    if isinstance(value, tuple):
+        return tuple(clone(el, True) if deep else el for el in value)
+
+    if isinstance(value, set):
+        return set(clone(el, True) if deep else el for el in value)
+
+    raise RuntimeError(f'could not clone {value} becaue it did not have a .clone() and was not recognised as a primitive type')
+
+def _record_clone_helper(value, deep: bool):
+    if isinstance(value, dict):
+        return dict((k, _record_clone_helper(v, deep)) for k, v in value.items())
+    if isinstance(value, list):
+        return list(_record_clone_helper(el, deep) for el in value)
+    if isinstance(value, tuple):
+        return tuple(_record_clone_helper(el, deep) for el in value)
+    if not deep:
+        return value
+    return clone(value, True)
+
+@reflect
 class Record:
 
     def __init__(self, *args, **kwargs):
 
-        fields = self.__dict__['fields'] = dict()
         type_hints = typing.get_type_hints(self.__class__)
         defaults = get_defaults(self.__class__)
         i = 0
@@ -122,10 +428,13 @@ class Record:
                 value = args[i]
                 i += 1
             else:
-                raise TypeError(f"argument '{name}' is required but did not receive a value")
+                try:
+                    value = coerce(None, ty)
+                except CoercionError:
+                    raise TypeError(f"argument '{name}' is required but did not receive a value")
             if not satisfies_type(value, ty):
-                raise TypeError(f"{value} did not satisfy type {ty}")
-            fields[name] = value
+                value = coerce(value, ty)
+            self.__dict__[name] = value
 
         for name, ty in type_hints.items():
             if name not in defaults:
@@ -141,89 +450,67 @@ class Record:
                 value = defaults[name]
             if not satisfies_type(value, ty):
                 raise TypeError(f"{value} did not satisfy type {ty}")
-            fields[name] = value
-
-        if i < len(args) or len(kwargs) > 0:
-            # missing = list()
-            # for name in type_hints:
-            #     if name not in fields:
-            #         missing.append(name)
-            # for name in defaults:
-            #     if name not in fields:
-            #         missing.append(name)
-            # raise TypeError("missing arguments: {pretty_enum(")
-            raise TypeError(f"excess arguments received: {len(args)} positional, {pretty_enum(kwargs.keys())}")
-
-    def get_field_names(self):
-        return self.fields.keys()
-
-    def items(self):
-        return self.fields.items()
-
-    def __getitem__(self, key):
-        return self.fields[key]
-
-    def __setitem__(self, key, value):
-        self.fields[key] = value
-
-    def resolve(self, key):
-        return self.fields[key]
-
-    def expand(self):
-        return self.fields.items()
-        # for k, v in self.fields.items():
-        #     if isinstance(v, list):
-        #         for el in v:
-        #             if isinstance(el, Record):
-        #                 yield k, el
-        #     elif isinstance(v, Record):
-        #         yield v
-
-    def clone(self, deep=False):
-        kwargs = self.fields if not deep else dict((k, clone(v, deep=True)) for k, v in self.fields.items())
-        return self.__class__(**kwargs)
-
-    def __getattribute__(self, name):
-        if name.startswith('__') or name == 'fields':
-            return super().__getattribute__(name)
-        elif name in self.fields:
-            return self.fields[name]
-        else:
-            return super().__getattribute__(name)
-
-    def __setattr__(self, name, value):
-        if name.startswith('__') or name == 'fields':
-            super().__setattr__(name, value)
-        elif name in self.fields:
-            self.fields[name] = value
-        else:
             self.__dict__[name] = value
 
-    def serialize(self):
-        return dict((k, serialize(v)) for k, v in self.fields.items())
+        if i < len(args) or len(kwargs) > 0:
+            parts = []
+            if i < len(args):
+                parts.append(f'{i-len(args)} positional')
+            for k in kwargs:
+                parts.append(f"'{k}'")
+            raise TypeError(f'excess arguments received to {get_class_name(self)}: {pretty_enum(parts)}')
 
-    @staticmethod
-    def deserialize(value, cls):
-        kwargs = dict((k, deserialize(v)) for k, v in value.items())
-        return cls(**kwargs)
+    def get_field_names(self):
+        return typing.get_type_hints(self).keys()
 
-    def equal(self, other):
-        if type(self) != type(other):
-            return False
-        for name, _ty in typing.get_type_hints(self).items():
-            if not eq(getattr(self, name), getattr(other, name)):
-                return False
-        return True
+    @property
+    def fields(self):
+        return RecordFields(self)
 
-    def plot(self, plot):
-        node = plot.add_node(label=self.__class__.__name__, shape='record', direction=VERTICAL)
-        for (key, value) in self.fields.items():
-            p = plot(value, key=key)
-            if p.is_embeddable:
-                row = node.label.add_cells(direction=HORIZONTAL, key=f'field-{key}')
-                row.add_text(key)
-                row.add_element(p)
-            else:
-                plot.add_edge(node, p, label=key)
-        return node
+    def __lt__(self, other):
+        if not isinstance(other, Record):
+            return _lt_helper(self, other)
+        return _lt_helper(self.fields, other.fields)
 
+    def __getitem__(self, name):
+        return self.fields[name]
+
+    def __setitem__(self, key, new_value):
+        self.fields[key] = new_value
+
+    def __setattr__(self, name, new_value):
+        hints = typing.get_type_hints(type(self))
+        if name in hints:
+            ty = hints[name]
+            if not satisfies_type(new_value, ty):
+                raise RuntimeError(f"cannot set field '{name}' to {new_value} on {get_class_name(self)} because the type {ty} is not satisfied")
+        super().__setattr__(name, new_value)
+
+    def clone(self, deep=False):
+        new_fields = dict()
+        for k, v in self.fields.items():
+            new_fields[k] = _record_clone_helper(v, deep)
+        return self.__class__(**new_fields)
+
+    def encode(self, encoder):
+        fields = { '$type': self.__class__.__name__ }
+        for k, v in self.fields.items():
+            fields[k] = v
+        return encoder.encode(fields)
+
+def _coerce_to_record(value, ty):
+    hints = typing.get_type_hints(ty)
+    defaults = get_defaults(ty)
+    required = 0
+    for key in hints.keys():
+        if key not in defaults:
+            required += 1
+    if required == 0:
+        if value is not None:
+            raise CoercionError(f'could not coerce {value} to {ty} because all fields are optional')
+        return ty()
+    if required == 1:
+        return ty(value)
+    raise CoercionError(f'could not coerce {value} to {ty} because it requires more than one field')
+
+add_coercion(Record, _coerce_to_record)

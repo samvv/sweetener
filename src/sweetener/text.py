@@ -1,6 +1,56 @@
 
-import math
-import colorama
+import re
+import io
+
+from .ansicodes import *
+from .colors import *
+from .math import count_digits
+
+_color_to_ansi = {
+    BLACK: ANSI_BLACK,
+    RED: ANSI_RED,
+    GREEN: ANSI_GREEN,
+    YELLOW: ANSI_YELLOW,
+    BLUE: ANSI_BLUE,
+    MAGENTA: ANSI_MAGENTA,
+    CYAN: ANSI_CYAN,
+    WHITE: ANSI_WHITE,
+    TRANSPARENT: '',
+    }
+
+_re_whitespace = re.compile('[\n\r\t ]')
+
+class IndentWriter:
+
+    def __init__(self, out=None, indentation='  '):
+        if out is None:
+            out = io.StringIO()
+        self.output = out
+        self.at_blank_line = True
+        self.newline_count = 0
+        self.indent_level = 0
+        self.indentation = indentation
+        self._re_whitespace = re.compile('[\n\r\t ]')
+
+    def indent(self):
+        self.indent_level += 1
+
+    def dedent(self):
+        self.indent_level -= 1
+
+    def ensure_trailing_lines(self, count):
+        self.write('\n' * max(0, count - self.newline_count))
+
+    def write(self, text):
+        for ch in text:
+            if ch == '\n':
+                self.newline_count = self.newline_count + 1 if self.at_blank_line else 1
+                self.at_blank_line = True
+            elif self.at_blank_line and not self._re_whitespace.match(ch):
+                self.newline_count = 0
+                self.output.write(self.indentation * self.indent_level)
+                self.at_blank_line = False
+            self.output.write(ch)
 
 class LineIndex:
 
@@ -80,12 +130,12 @@ class LineIndex:
 
 class TextFile:
 
-    def __init__(self, name, text):
-        self.name = name
+    def __init__(self, text='', name=None):
         self.text = text
+        self.name = name
         self._line_index = LineIndex(text)
 
-    def get_offset(self, line):
+    def get_line_offset(self, line):
         return self._line_index.get_offset(line)
 
     def get_column(self, offset):
@@ -100,68 +150,84 @@ class TextFile:
     def __getitem__(self, index):
         return self.text[index]
 
-def count_digits(n):
-    return 1 if n == 0 or n == 1 else math.ceil(math.log10(n+1))
-
-def print_excerpt(text, span, lines_pre=1, lines_post=1, gutter_width=None):
+def write_excerpt(out, text, span, lines_pre=1, lines_post=1, gutter_width=None, message=None, line_color=WHITE):
 
     if not isinstance(text, TextFile):
-        text = TextFile(None, text)
-
-    out = ''
+        text = TextFile(text)
 
     start_line = text.get_line(span[0])
     end_line = text.get_line(span[1])
-    start_line_offset = text.get_offset(start_line)
-    end_line_offset = text.get_offset(end_line+1)
+    start_line_offset = text.get_line_offset(start_line)
+    end_line_offset = text.get_line_offset(end_line+1)
     start_column = span[0] - start_line_offset + 1
-    end_column = span[1] - text.get_offset(end_line) + 1
+    end_column = span[1] - text.get_line_offset(end_line) + 1
     pre_line = max(start_line-lines_pre, 1)
-    pre_offset = text.get_offset(pre_line)
-    post_offset = text.get_offset(end_line+lines_post+1)
+    pre_offset = text.get_line_offset(pre_line)
+    post_offset = text.get_line_offset(end_line+lines_post+1)
 
     if gutter_width is None:
         gutter_width = max(2, count_digits(end_line+lines_post))
 
     # initial position in text
+    at_blank_line = True
     line = pre_line
     column = 1
-    offset = 0
+
+    def write(ch):
+        nonlocal line, column, at_blank_line
+        if at_blank_line:
+            print_gutter(line)
+        if ch == '\n':
+            line += 1
+            at_blank_line = True
+        elif not _re_whitespace.match(ch):
+            at_blank_line = False
 
     def print_guttered(start, end):
-        nonlocal out, line
+        nonlocal out, line, at_blank_line
         for i in range(start, end):
-            ch = text[i]
-            if ch == '\n':
-                out += '\n'
-                line += 1
-                print_gutter(line)
-            else:
-                out += ch
+            out.write(text[i])
 
     def print_gutter(line=None):
         nonlocal out
         num_width = 0 if line is None else count_digits(line)
-        out += colorama.Fore.BLACK + colorama.Back.WHITE
-        for i in range(0, gutter_width - num_width):
-            out += ' '
+        out.write(ANSI_BLACK + ANSI_BACKGROUND_WHITE)
+        for _ in range(0, gutter_width - num_width):
+            out.write(' ')
         if line is not None:
-            out += str(line)
-        out += colorama.Fore.RESET + colorama.Back.RESET + ' '
+            out.write(str(line))
+        out.write(ANSI_RESET + ' ')
+
+    def write_color(color: int):
+        out.write(_color_to_ansi[color])
 
     def print_underline():
         nonlocal out
         k = start_column if line == start_line else 1
         l = end_column if line == end_line else column
-        if l - k > 0:
-            out += '\n'
+        should_print_message = line == end_line and message is not None
+        if l > k:
+            out.write('\n')
             print_gutter()
-            for i in range(0, k-1):
-                out += ' '
-            out += colorama.Fore.RED
-            for i in range(k-1, l-1):
-                out += '~'
-            out += colorama.Fore.RESET
+            for _ in range(0, k-1):
+                out.write(' ')
+            write_color(line_color)
+            line_char_count = l - k
+            if should_print_message:
+                out.write('┬')
+                line_char_count -= 1
+            for _ in range(0, line_char_count):
+                out.write('─')
+            out.write(ANSI_RESET)
+            if should_print_message:
+                out.write('\n')
+                print_gutter()
+                for _ in range(0, k-1):
+                    out.write(' ')
+                write_color(line_color)
+                out.write('└ ')
+                out.write(ANSI_RESET)
+                out.write(message)
 
     print_gutter(line)
 
@@ -173,13 +239,15 @@ def print_excerpt(text, span, lines_pre=1, lines_post=1, gutter_width=None):
             print_underline()
             line += 1
             column = 1
-            out += ch
+            out.write('\n')
             print_gutter(line)
         else:
             column += 1
-            out += ch
+            out.write(ch)
 
     print_guttered(end_line_offset, post_offset)
+
+    out.write('\n')
 
     return out
 
