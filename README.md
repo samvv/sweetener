@@ -1,7 +1,7 @@
 Sweetener
 =========
 
-[![Coverage Status](https://coveralls.io/repos/github/samvv/sweetener/badge.svg?branch=master)](https://coveralls.io/github/samvv/sweetener?branch=master)
+[![Python package](https://github.com/samvv/sweetener/actions/workflows/python-package.yml/badge.svg)](https://github.com/samvv/sweetener/actions/workflows/python-package.yml) [![Coverage Status](https://coveralls.io/repos/github/samvv/sweetener/badge.svg?branch=master)](https://coveralls.io/github/samvv/sweetener?branch=master)
 
 Sweetener is a Python library that contains some generic algorithms and data
 structures not found in the standard libary. Extra care has been taken to make
