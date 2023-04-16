@@ -467,15 +467,26 @@ class Record:
     def fields(self):
         return RecordFields(self)
 
+    def items(self):
+        return self.fields.items()
+
+    def equal(self, other) -> bool:
+        if self.__class__ != other.__class__:
+            return False
+        for k1, v1 in self.fields.items():
+            if other[k1] != v1:
+                return False
+        return True
+
     def __lt__(self, other):
         if not isinstance(other, Record):
             return _lt_helper(self, other)
         return _lt_helper(self.fields, other.fields)
 
-    def __getitem__(self, name):
+    def __getitem__(self, name: str):
         return self.fields[name]
 
-    def __setitem__(self, key, new_value):
+    def __setitem__(self, key: str, new_value):
         self.fields[key] = new_value
 
     def __setattr__(self, name, new_value):

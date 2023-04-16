@@ -52,6 +52,8 @@ class IndentWriter:
                 self.at_blank_line = False
             self.output.write(ch)
 
+EOF = '\uFFFF'
+
 class LineIndex:
 
     def __init__(self, text):
@@ -191,15 +193,12 @@ def write_excerpt(out, text, span, lines_pre=1, lines_post=1, gutter_width=None,
     def print_gutter(line=None):
         nonlocal out
         num_width = 0 if line is None else count_digits(line)
-        out.write(ANSI_BLACK + ANSI_BACKGROUND_WHITE)
-        for _ in range(0, gutter_width - num_width):
-            out.write(' ')
+        out += termstyle.FG_BLACK + termstyle.BG_WHITE
+        for i in range(0, gutter_width - num_width):
+            out += ' '
         if line is not None:
-            out.write(str(line))
-        out.write(ANSI_RESET + ' ')
-
-    def write_color(color: int):
-        out.write(_color_to_ansi[color])
+            out += str(line)
+        out += termstyle.RESET + ' '
 
     def print_underline():
         nonlocal out
@@ -209,25 +208,12 @@ def write_excerpt(out, text, span, lines_pre=1, lines_post=1, gutter_width=None,
         if l > k:
             out.write('\n')
             print_gutter()
-            for _ in range(0, k-1):
-                out.write(' ')
-            write_color(line_color)
-            line_char_count = l - k
-            if should_print_message:
-                out.write('┬')
-                line_char_count -= 1
-            for _ in range(0, line_char_count):
-                out.write('─')
-            out.write(ANSI_RESET)
-            if should_print_message:
-                out.write('\n')
-                print_gutter()
-                for _ in range(0, k-1):
-                    out.write(' ')
-                write_color(line_color)
-                out.write('└ ')
-                out.write(ANSI_RESET)
-                out.write(message)
+            for i in range(0, k-1):
+                out += ' '
+            out += termstyle.FG_RED
+            for i in range(k-1, l-1):
+                out += '~'
+            out += termstyle.RESET
 
     print_gutter(line)
 

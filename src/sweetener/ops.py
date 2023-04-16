@@ -2,7 +2,7 @@
 from typing import TypeVar
 
 from .clazz import hasmethod
-from .common import ischar, isprimitive
+from .common import isprimitive
 from .iterator import first, last, is_empty
 
 T = TypeVar('T')
@@ -62,49 +62,52 @@ def increment_key(value, key, expand=expand):
     if hasmethod(key, 'increment'):
         return key.increment(value)
 
-    elif isinstance(key, list):
+    match key:
 
-        # pre-populate a list of child nodes of self.root so we can access them
-        # easily
-        values = [ value ]
-        for element in key:
-            value = resolve(value, element)
-            values.append(value)
+        case list():
 
-        # if we still can go deeper we should try that first
-        result = first(expand(value))
-        if result is not None:
-            element, _child = result
-            new_key = clone(key)
-            new_key.append(element)
-            return new_key
+            # pre-populate a list of child nodes of self.root so we can access them
+            # easily
+            values = [ value ]
+            for element in key:
+                value = resolve(value, element)
+                values.append(value)
 
-        # go up until we find a key that we can increment
-        for i in reversed(range(0, len(key))):
-            element = key[i]
-            new_element = increment_key(values[i], element)
-            if new_element is not None:
-                new_key = key[:i]
-                new_key.append(new_element)
+            # if we still can go deeper we should try that first
+            result = first(expand(value))
+            if result is not None:
+                element, _child = result
+                new_key = clone(key)
+                new_key.append(element)
                 return new_key
 
-        # we went up beyond the root node
-        return None
+            # go up until we find a key that we can increment
+            for i in reversed(range(0, len(key))):
+                element = key[i]
+                new_element = increment_key(values[i], element)
+                if new_element is not None:
+                    new_key = key[:i]
+                    new_key.append(new_element)
+                    return new_key
 
-    elif isinstance(key, int):
-        return key+1 if key < len(value)-1 else None
-
-    elif isinstance(key, str):
-        items = iter(value.items())
-        for k, _v in items:
-            if k == key:
-                break
-        try:
-            return next(items)[0]
-        except StopIteration:
+            # we went up beyond the root node
             return None
 
-    raise RuntimeError(f'did not know how to increment key {key}')
+        case int():
+            return key+1 if key < len(value)-1 else None
+
+        case str():
+            items = iter(value.items())
+            for k, _v in items:
+                if k == key:
+                    break
+            try:
+                return next(items)[0]
+            except StopIteration:
+                return None
+
+        case _:
+            raise RuntimeError(f'did not know how to increment key {key}')
 
 def decrement_key(value, key, expand=expand):
 

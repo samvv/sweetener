@@ -2,14 +2,9 @@
 import pytest
 from typing import Optional
 
-try:
-    import graphviz
-except ImportError:
-    graphviz = None
-
 from .compare import eq
 from .record import Record
-from .visual import visualize
+#from .visual import visualize
 
 def test_record_init_required():
 
@@ -21,11 +16,12 @@ def test_record_init_required():
     assert(r1.field_1 == 'a')
     assert(r1.field_2 == 1)
 
-    with pytest.raises(TypeError):
-        MyRecord()
+    r2 = MyRecord('b')
+    assert(r2.field_1 == 'b')
+    assert(r2.field_2 is None)
 
     with pytest.raises(TypeError):
-        MyRecord('a')
+        MyRecord()
 
 def test_record_init_optional_default():
 
@@ -44,8 +40,10 @@ def test_record_init_optional_default():
     assert(r2.field_2 == 4)
     assert(r2.field_3 == 'bar')
 
-    with pytest.raises(TypeError):
-        MyRecord('foo')
+    r3 = MyRecord('foo')
+    assert(r3.field_1 == 'foo')
+    assert(r3.field_2 == 3)
+    assert(r3.field_3 is None)
 
     with pytest.raises(TypeError):
         MyRecord('foo', 'bar', 4, 5)

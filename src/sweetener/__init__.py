@@ -1,6 +1,8 @@
 
-from .record import Record
-from .node import BaseNode
-from .compare import eq, lt, gt, lte, gte
-from .text import LineIndex, write_excerpt
-
+from .record import *
+from .node import *
+from .compare import *
+from .text import *
+from .termstyle import *
+from .quicksort import *
+from .heapsort import *

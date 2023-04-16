@@ -1,5 +1,5 @@
 
-from sweetener.clazz import hasmethod
+from .clazz import hasmethod
 from .common import ischar, isprimitive
 
 _TYPE_INDICES = [bool, int, float, str, tuple, list]
@@ -52,8 +52,8 @@ def eq(a, b):
     elif isinstance(a, dict) and isinstance(b, dict):
         if len(a) != len(b):
             return False
-        for (k1, a), (k2, b) in zip(a.items(), b.items()):
-            if not eq(k1, k2) or not eq(a, b):
+        for (k_1, v_1), (k_2, v_2) in zip(a.items(), b.items()):
+            if not eq(k_1, k_2) or not eq(v_1, v_2):
                 return False
         return True
     else:

@@ -62,21 +62,112 @@ def pretty_enum(elements, default='nothing'):
         prev_element = element
     return result + ' or ' + prev_element
 
-def resolve(value, path: List[Any]):
-    for key in path:
-        value = value[key]
-    return value
-
 def make_comparator(less_than):
     def compare(x, y):
         if less_than(x, y):
             return -1
-        elif less_than(y, x):
+        if less_than(y, x):
             return 1
-        else:
-            return 0
+        return 0
     return compare
 
+def get_class_name(value):
+    return value.__name__ \
+        if isinstance(value, type) \
+        else get_class_name(type(value))
+
+_type_list = [ type(None), bool, int, float, str, tuple, list, dict ]
+
+def lt(v1, v2):
+    match (v1, v2):
+        case (bool(), bool()) \
+            | (int(), int()) \
+            | (float(), float()) \
+            | (str(), str()):
+            return v1 < v2
+        case (tuple(), tuple()) | (list(), list()):
+            if len(v1) != len(v2):
+                return len(v1) < len(v2)
+            for el1, el2 in zip(v1, v2):
+                if lt(el1, el2):
+                    return True
+            return False
+        case _:
+            return _type_list.index(v1.__class__) < _type_list.index(v2.__class__)
+
+def has_method(value, name):
+    return hasattr(value, name) \
+        and inspect.ismethod(getattr(value, name))
+
+def is_primitive(value):
+    return value is None \
+        or isinstance(value, str) \
+        or isinstance(value, bool) \
+        or isinstance(value, float) \
+        or isinstance(value, int)
+
+
+def eq(a, b):
+    if has_method(a, 'equal') and has_method(b, 'equal'):
+        try:
+            return a.equal(b)
+        except TypeError:
+            return b.equal(a)
+    elif is_primitive(a) and is_primitive(b):
+        return a == b
+    elif isinstance(a, list) and isinstance(b, list):
+        if len(a) != len(b):
+            return False
+        for el1, el2 in zip(a, b):
+            if not eq(el1, el2):
+                return False
+        return True
+    elif isinstance(a, tuple) and isinstance(b, tuple):
+        if len(a) != len(b):
+            return False
+        for el1, el2 in zip(a, b):
+            if not eq(el1, el2):
+                return False
+        return True
+    elif isinstance(a, dict) and isinstance(b, dict):
+        if len(a) != len(b):
+            return False
+        for (k_1, v_1), (k_2, v_2) in zip(a.items(), b.items()):
+            if not eq(k_1, k_2) or not eq(v_1, v_2):
+                return False
+        return True
+    else:
+        return False
+
+def le(v1, v2):
+    return lt(v1, v2) or eq(v1, v2)
+
+def ge(v1, v2):
+    return not lt(v1, v2)
+
+def gt(v1, v2):
+    return not le(v1, v2)
+
+def gte(v1, v2):
+    return gt(v1, v2) or eq(v1, v2)
+
+def lte(v1, v2):
+    return lt(v1, v2) or eq(v1, v2)
+
+def reflect(target):
+    _type_list.append(target)
+    return target
+
+def get_type_index(value):
+    for i, ty in enumerate(_type_list):
+        if isinstance(value, ty):
+            return i
+    raise RuntimeError(f"could not determine type index of {value}: type was not in database")
+
+def resolve(value, path: list[Any]):
+    for key in path:
+        value = value[key]
+    return value
 
 def lift_key(proc, path):
     if isinstance(path, str):

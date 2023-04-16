@@ -106,7 +106,7 @@ class BaseNode(Record):
         if self._next_child:
             self._next_child._prev_child = self.prev_child
         if self.parent is not None:
-            for field_name, field_value in self.parent.items():
+            for field_name, field_value in self.parent.fields.items():
                 for path, child in preorder_with_paths(field_value, expand=expand_no_basenode):
                     if child == self:
                         path.insert(0, field_name)
@@ -121,7 +121,7 @@ class BaseNode(Record):
         if self._next_child:
             self._next_child._prev_child = new_node
         if self.parent is not None:
-            for field_name, field_value in self.parent.items():
+            for field_name, field_value in self.parent.fields.items():
                 for path, child in preorder_with_paths(field_value, expand=expand_no_basenode):
                     if child == self:
                         path.insert(0, field_name)
@@ -137,13 +137,13 @@ class BaseNode(Record):
         return last(self.get_child_nodes())
 
     def get_all_child_nodes(self):
-        for _field_name, field_value in self.items():
+        for field_value in self.fields.values():
             for child in preorder(field_value):
                 if isinstance(child, BaseNode):
                     yield child
 
     def get_child_nodes(self):
-        for _field_name, field_value in self.items():
+        for field_value in self.fields.values():
             for child in preorder(field_value, expand=expand_no_basenode):
                 if isinstance(child, BaseNode):
                     yield child
@@ -155,7 +155,7 @@ def expand_no_basenode(value):
 def set_parent_nodes(node, parent=None, path=[]):
     node.parent = parent
     node.path = path
-    for field_name, field_value in node.items():
+    for field_name, field_value in node.fields.items():
         for new_path, child in preorder_with_paths(field_value, expand=expand_no_basenode):
             if isinstance(child, BaseNode):
                 new_path.insert(0, field_name)
