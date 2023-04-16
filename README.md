@@ -12,14 +12,15 @@ In particular, this library contains the following goodies:
 
   - **Generic procedures** like `clone`, `equal` and `lte` that work on most
     types in the standard library and you can specialize for your own types.
-  - A **typed record type** that allows you to very quickly define a new data
-    structure and have it automatically validated.
-  - A **generic representation for parse trees** that allows you to define,
-    query and manipulate individual nodes with ease.
+  - **Tools for lexing and parsing**, including tools for creating fully typed
+    AST nodes, writing them to disk, and visualizing them using GraphViz.
 
 [1]: https://github.com/samvv/sweetener/issues
 
 ## Examples
+
+Here's an example of using the `Record` type to define a record that holds two
+fields and visualizes tham using GraphViz:
 
 ```py
 from sweetener import Record, equal, visualize
