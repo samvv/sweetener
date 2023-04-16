@@ -1,7 +1,7 @@
 Sweetener
 =========
 
-[![Build Status](https://travis-ci.org/samvv/Sweetener.svg?branch=master)](https://travis-ci.org/samvv/Sweetener) [![Coverage Status](https://coveralls.io/repos/github/samvv/Sweetener/badge.svg?branch=master)](https://coveralls.io/github/samvv/Sweetener?branch=master)
+[![Coverage Status](https://coveralls.io/repos/github/samvv/sweetener/badge.svg?branch=master)](https://coveralls.io/github/samvv/sweetener?branch=master)
 
 Sweetener is a Python library that contains some generic algorithms and data
 structures not found in the standard libary. Extra care has been taken to make
@@ -17,7 +17,7 @@ In particular, this library contains the following goodies:
   - A **generic representation for parse trees** that allows you to define,
     query and manipulate individual nodes with ease.
 
-[1]: https://github.com/samvv/Sweetener/issues
+[1]: https://github.com/samvv/sweetener/issues
 
 ## Examples
 
@@ -38,7 +38,7 @@ visualize(r1)
 
 Running this program will open a new window with the following content:
 
-<img src="https://raw.githubusercontent.com/samvv/Sweetener/master/sample-record.png" />
+<img src="https://raw.githubusercontent.com/samvv/sweetener/master/sample-record.png" />
 
 ## License
 

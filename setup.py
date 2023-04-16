@@ -14,7 +14,7 @@ setup(
     description='A collection of useful algorithms and data structures',
     long_description=long_description,
     long_description_content_type='text/markdown',
-    url='https://github.com/samvv/Sweetener',
+    url='https://github.com/samvv/sweetener',
     author='Sam Vervaeck',
     author_email='samvv@pm.me',
     classifiers=[
@@ -41,7 +41,7 @@ setup(
         'test': ['pytest'],
     },
     project_urls={  # Optional
-        'Bug Reports': 'https://github.com/samvv/Sweetener/issues',
-        'Source': 'https://github.com/samvv/Sweetener/',
+        'Bug Reports': 'https://github.com/samvv/sweetener/issues',
+        'Source': 'https://github.com/samvv/sweetener/',
     },
 )
