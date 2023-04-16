@@ -1,6 +1,8 @@
 
 from typing import TypeVar, Iterable, Generic
 
+from .bidict import bidict
+
 K = TypeVar('K')
 V = TypeVar('V')
 
