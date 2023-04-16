@@ -2,11 +2,13 @@
 from typing import List, Any
 from functools import reduce, wraps
 
-_next_type_index = 0
+_next_type_id = 0
 _type_index = dict()
 
 def register_type(ty):
-    index = _next_type_index
+    global _next_type_id
+    index = _next_type_id
+    _next_type_id += 1
     assert(ty not in _type_index)
     _type_index[ty] = index
 
@@ -20,7 +22,7 @@ def reflect(target):
 def get_type_index(ty):
     index = _type_index.get(ty)
     if index is None:
-        raise RuntimeError(f"could not determine type index of {ty}: type was not registered during this session")
+        raise RuntimeError(f"could not determine type index of {ty}: type was not registered during this execution")
     return index
 
 def flatten(l):
@@ -70,11 +72,6 @@ def make_comparator(less_than):
             return 1
         return 0
     return compare
-
-def get_class_name(value):
-    return value.__name__ \
-        if isinstance(value, type) \
-        else get_class_name(type(value))
 
 _type_list = [ type(None), bool, int, float, str, tuple, list, dict ]
 
@@ -153,16 +150,6 @@ def gte(v1, v2):
 
 def lte(v1, v2):
     return lt(v1, v2) or eq(v1, v2)
-
-def reflect(target):
-    _type_list.append(target)
-    return target
-
-def get_type_index(value):
-    for i, ty in enumerate(_type_list):
-        if isinstance(value, ty):
-            return i
-    raise RuntimeError(f"could not determine type index of {value}: type was not in database")
 
 def resolve(value, path: list[Any]):
     for key in path:
