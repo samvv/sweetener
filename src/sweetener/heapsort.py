@@ -1,7 +1,17 @@
 
+from typing import Callable, Protocol, TypeVar
+
 from .common import swap, lift
 
-def isheap(a, *, cmp=lambda a,b: a < b):
+class Comparable(Protocol):
+    def __lt__(self, other: 'Comparable') -> bool:
+        raise NotImplementedError
+
+T = TypeVar('T', bound=Comparable)
+
+CompareFn = Callable[[T, T], bool]
+
+def isheap(a: list[T], *, cmp: CompareFn = lambda a,b: a < b):
     n = len(a)
     for i in range(0, n // 2):
         if cmp(a[i], a[2 * i]):
@@ -12,10 +22,10 @@ def isheap(a, *, cmp=lambda a,b: a < b):
         return False
     return True
 
-def _sift_down(a, n, max, cmp):
+def _sift_down(a: list[T], n: int, max: int, cmp: CompareFn):
   while True:
     biggest = n
-    c1 = 2*n
+    c1 = 2 * n
     c2 = c1 + 1
     if c1 < max and cmp(a[biggest], a[c1]):
         biggest = c1
@@ -26,7 +36,7 @@ def _sift_down(a, n, max, cmp):
     swap(a, n, biggest)
     n = biggest
 
-def heapify(a, *, cmp=lambda a, b: a < b):
+def heapify(a: list[T], cmp: CompareFn= lambda a, b: a < b):
     i = len(a) // 2
     max = len(a)
     while i >= 0:
@@ -48,7 +58,7 @@ def sortheap(a, *, cmp=lambda a, b: a < b, key=None):
         _sift_down(a, 0, j, cmp)
         j -= 1
 
-def heapsort(a, cmp=lambda a, b: a < b, key=None):
+def heapsort(a: list[T], cmp: CompareFn=lambda a, b: a < b, key=None):
     if key is not None:
         cmp = lift(cmp, key)
     heapify(a, cmp=cmp)
