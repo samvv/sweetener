@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from extralib import Record, visualize
+from sweetener import Record, visualize
 
 class MyRecord(Record):
     field_1: str
