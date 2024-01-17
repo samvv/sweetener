@@ -11,7 +11,7 @@ long_description = (here / 'README.md').read_text(encoding='utf-8')
 setup(
     name='sweetener',
     version='0.1.0',
-    description='A collection of useful algorithms and data structures',
+    description='A base library for writing compilers and interpreters',
     long_description=long_description,
     long_description_content_type='text/markdown',
     url='https://github.com/samvv/sweetener',

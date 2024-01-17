@@ -3,19 +3,16 @@ Sweetener
 
 [![Python package](https://github.com/samvv/sweetener/actions/workflows/python-package.yml/badge.svg)](https://github.com/samvv/sweetener/actions/workflows/python-package.yml) [![Coverage Status](https://coveralls.io/repos/github/samvv/sweetener/badge.svg?branch=main)](https://coveralls.io/github/samvv/sweetener?branch=main)
 
-Sweetener is a Python library that contains some generic algorithms and data
-structures not found in the standard libary. Extra care has been taken to make
-the algorithms as flexible as possible to fit as many use cases. If you're
-still missing something, do not hesitate to file an [issue][1]!
-
-In particular, this library contains the following goodies:
+Sweetener is a Python library for quickly prototyping compilers and
+interpreters. Extra care has been taken to make the algorithms as flexible as
+possible to fit as many use cases. If you're still missing something, do not
+hesitate to file an [issue][1]! In particular, this library contains the
+following goodies:
 
  - **A typed record type** that allows you to build PODs very quickly.
  - **Base classes for an AST/CST**, including reflection procedures.
- - **Functions and objects for managing terminal style** that are automatically
-   activated if the terminal supports it.
- - **A means for writing diagnostics** that can also print part of your source code alongside 
-   your error messages.
+ - **A means for writing diagnostics** that can print part of your source code
+   alongside your error messages.
  - **Generic procedures** like `clone`, `equal` and `lte` that work on most
    types in the standard library and you can specialize for your own types.
 
