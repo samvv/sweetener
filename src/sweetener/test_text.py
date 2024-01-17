@@ -1,7 +1,10 @@
 
+import json
+from pathlib import Path
 import pytest
+import io
 
-from .text import LineIndex
+from .text import LineIndex, write_excerpt
 
 def test_line_index_empty():
     idx = LineIndex('')
@@ -25,7 +28,6 @@ def test_line_index_get_line():
     with pytest.raises(RuntimeError):
         idx.get_line(12)
 
-
 def test_line_index_get_column():
     idx = LineIndex('foo\nbar\nbax\n')
     assert(idx.count_lines() == 4)
@@ -43,7 +45,6 @@ def test_line_index_get_column():
     assert(idx.get_column(11) == 4)
     with pytest.raises(RuntimeError):
         idx.get_column(12)
-
 
 def test_line_index_get_offset():
     idx = LineIndex('foo\nbar\nbax\n')
@@ -67,3 +68,29 @@ def test_line_index_get_offset_eof_newline():
     with pytest.raises(RuntimeError):
         idx.get_offset(6)
 
+test_cache_dir = Path(__file__).parent.parent.parent / 'test-cache'
+
+def read_file(file: Path, encoding = 'utf-8') -> str:
+    with open(file, 'r', encoding=encoding) as f:
+        return f.read()
+
+def test_except_foobar():
+    for file in test_cache_dir.iterdir():
+        if not file.is_file():
+            continue
+        text = read_file(file)
+        i1 = text.index('---\n')
+        i2 = text.index('---\n', i1 + 4)
+        obj = json.loads(text[i1+4:i2])
+        start = obj[0]
+        end = obj[1]
+        expected = text[i2+4:]
+        out = io.StringIO()
+        write_excerpt(out, text, (start, end))
+        actual = out.getvalue()
+        if expected:
+            assert(actual == expected)
+        else:
+            with open(file, 'a') as f:
+                f.write(actual);
+            raise RuntimeError(f"Test '{file.stem}' had no expected value. The current output has been saved as the expected output. Re-run pytest to let the tests pass.")

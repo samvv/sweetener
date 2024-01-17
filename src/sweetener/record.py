@@ -1,17 +1,20 @@
 
+import yaml
+import types
 import typing
 from functools import cmp_to_key
 import collections.abc
 import inspect
+from typing import Any, Callable, Generator, Protocol, Self, Type, TypeVar, cast
 
 from .logging import warn
 from .util import get_class_name, get_type_index, lift_key, reflect, make_comparator
 
-T = typing.TypeVar('T')
+T = TypeVar('T')
 
 _primitive_types = [ type(None), bool, int, float, str ]
 
-def satisfies_type(value, ty):
+def satisfies_type(value: Any, ty: Type) -> bool:
 
     if ty is None:
         return value is None
@@ -26,7 +29,7 @@ def satisfies_type(value, ty):
 
     args = typing.get_args(ty)
 
-    if origin is typing.Union:
+    if origin is typing.Union or origin == types.UnionType:
         return any(satisfies_type(value, arg) for arg in args)
 
     if origin is dict:
@@ -70,7 +73,7 @@ def satisfies_type(value, ty):
     warn(f'no type-checking logic defined for {origin}')
     return isinstance(value, origin)
 
-def _get_all_union_elements(value):
+def _get_all_union_elements(value: Type):
 
     origin = typing.get_origin(value)
 
@@ -139,7 +142,7 @@ def _lt_helper(a, b):
         return _lt_helper_sequence(a, b)
     return a < b
 
-def has_annotation(cls, expected):
+def has_annotation(cls: Type, expected: str) -> bool:
     prev_annotations = None
     for cls in cls.__mro__:
         if hasattr(cls, '__annotations__') and cls.__annotations__ != prev_annotations:
@@ -149,18 +152,18 @@ def has_annotation(cls, expected):
                 prev_annotations = cls.__annotations__
     return False
 
-def get_all_subclasses(cls):
+def get_all_subclasses(cls: Type) -> Generator[Type, None, None]:
     yield cls
     for subcls in cls.__subclasses__():
         yield from get_all_subclasses(subcls)
 
-def find_subclass_named(name, cls):
+def find_subclass_named(name: str, cls: Type) -> Type:
     for subcls in get_all_subclasses(cls):
         if subcls.__name__ == name:
             return subcls
     raise NameError(f"class named '{name}' not found")
 
-def get_defaults(cls):
+def get_defaults(cls: Type) -> dict[str, Any]:
     result = dict()
     for pcls in inspect.getmro(cls):
         for k, v in pcls.__dict__.items():
@@ -168,27 +171,29 @@ def get_defaults(cls):
                 result[k] = v
     return result
 
-_class_coercions = list()
+type CoerceFn = Callable[[Any, Type], Type]
 
-def add_coercion(cls, proc):
+_class_coercions = list[tuple[Type, CoerceFn]]()
+
+def add_coercion(cls: Type, proc: CoerceFn) -> None:
     assert(cls not in _class_coercions)
     _class_coercions.append((cls, proc))
 
 class CoercionError(RuntimeError):
     pass
 
-def get_all_superclasses(cls):
+def get_all_superclasses(cls: Type) -> Generator[Type, None, None]:
     yield cls
     for parent_cls in cls.__bases__:
         yield from get_all_superclasses(parent_cls)
 
-def get_common_superclass(classes):
+def get_common_superclass(classes: list[Type]) -> Type | None:
     cls = classes[0]
     for parent_cls in get_all_superclasses(cls):
         if all(issubclass(cls, parent_cls) for cls in classes):
             return parent_cls
 
-def coerce(value, ty):
+def coerce(value: Any, ty: Type) -> Any:
 
     if ty is type(None):
         if value is not None:
@@ -253,7 +258,6 @@ def coerce(value, ty):
         if value is None:
             return tuple(coerce(None, element_type) for element_type in args)
         return tuple(coerce(element, element_type) for element, element_type in zip(value, args))
-
 
     raise RuntimeError(f'cannot coerce {value} into {ty} because {origin} is an unsupported typing')
 
@@ -322,7 +326,7 @@ def transform(value: T, proc) -> T:
             new_elements.append(new_element)
         if not has_new_element:
             return value
-        return tuple(new_elements)
+        return cast(T, tuple(new_elements))
 
     if isinstance(value, list):
         new_elements = []
@@ -334,7 +338,7 @@ def transform(value: T, proc) -> T:
             new_elements.append(new_element)
         if not has_new_element:
             return value
-        return new_elements
+        return cast(T, new_elements)
 
     if isinstance(value, set):
         new_elements = set()
@@ -346,7 +350,7 @@ def transform(value: T, proc) -> T:
             new_elements.add(new_element)
         if not has_new_element:
             return value
-        return new_elements
+        return cast(T, new_elements)
 
     if isinstance(value, Record):
         cls = value.__class__
@@ -371,30 +375,33 @@ def transform(value: T, proc) -> T:
             new_value[k] = new_v
         if not has_new_v:
             return value
-        return new_value
+        return cast(T, new_value)
 
     raise RuntimeError(f'unexpected {value}')
 
-def clone(value: T, deep=False) -> T:
+class Clonable(Protocol):
+    def clone(self) -> Self: ...
+
+def clone(value: T, deep = False) -> T:
 
     for cls in _primitive_types:
         if isinstance(value, cls):
             return value
 
     if isinstance(value, object) and hasattr(value, 'clone'):
-        return value.clone()
+        return cast(Any, value).clone()
 
     if isinstance(value, dict):
-        return dict((k, clone(v, True) if deep else v) for k, v in value.items())
+        return cast(T, dict((k, clone(v, True) if deep else v) for k, v in value.items()))
 
     if isinstance(value, list):
-        return list(clone(el, True) if deep else el for el in value)
+        return cast(T, list(clone(el, True) if deep else el for el in value))
 
     if isinstance(value, tuple):
-        return tuple(clone(el, True) if deep else el for el in value)
+        return cast(T, tuple(clone(el, True) if deep else el for el in value))
 
     if isinstance(value, set):
-        return set(clone(el, True) if deep else el for el in value)
+        return cast(T, set(clone(el, True) if deep else el for el in value))
 
     raise RuntimeError(f'could not clone {value} becaue it did not have a .clone() and was not recognised as a primitive type')
 
@@ -478,7 +485,7 @@ class Record:
                 return False
         return True
 
-    def __lt__(self, other):
+    def __lt__(self, other) -> bool:
         if not isinstance(other, Record):
             return _lt_helper(self, other)
         return _lt_helper(self.fields, other.fields)
@@ -486,10 +493,10 @@ class Record:
     def __getitem__(self, name: str):
         return self.fields[name]
 
-    def __setitem__(self, key: str, new_value):
+    def __setitem__(self, key: str, new_value: Any) -> None:
         self.fields[key] = new_value
 
-    def __setattr__(self, name, new_value):
+    def __setattr__(self, name: str, new_value: Any) -> None:
         hints = typing.get_type_hints(type(self))
         if name in hints:
             ty = hints[name]
@@ -497,19 +504,36 @@ class Record:
                 raise RuntimeError(f"cannot set field '{name}' to {new_value} on {get_class_name(self)} because the type {ty} is not satisfied")
         super().__setattr__(name, new_value)
 
-    def clone(self, deep=False):
+    def clone(self, deep=False) -> Self:
         new_fields = dict()
         for k, v in self.fields.items():
             new_fields[k] = _record_clone_helper(v, deep)
         return self.__class__(**new_fields)
 
-    def encode(self, encoder):
+    def to_primitive(self) -> dict[str, Any]:
         fields = { '$type': self.__class__.__name__ }
+        def encode(value: Any) -> Any:
+            if isinstance(value, tuple):
+                return tuple(encode(element) for element in value)
+            if isinstance(value, list):
+                return list(encode(element) for element in value)
+            if isinstance(value, Record):
+                return value.to_primitive()
+            return value
         for k, v in self.fields.items():
-            fields[k] = v
-        return encoder.encode(fields)
+            fields[k] = encode(v)
+        return fields
 
-def _coerce_to_record(value, ty):
+    def dump(self) -> None:
+        print(yaml.dump(self.to_primitive()))
+
+    # FIXME Either use this method or remove it
+    def encode(self, encoder) -> None:
+        encoder.write_tag(self.__class__.__name__)
+        for k, v in self.fields.items():
+            encoder.write_field(k, v)
+
+def _coerce_to_record(value: Any, ty: Type[T]) -> T:
     hints = typing.get_type_hints(ty)
     defaults = get_defaults(ty)
     required = 0
@@ -525,3 +549,4 @@ def _coerce_to_record(value, ty):
     raise CoercionError(f'could not coerce {value} to {ty} because it requires more than one field')
 
 add_coercion(Record, _coerce_to_record)
+

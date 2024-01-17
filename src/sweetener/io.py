@@ -16,11 +16,11 @@ def mkdirp(filepath):
 
 UNITS = ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB', 'ZiB', 'YiB']
 
-def humanbytes(bs: int):
-    if bs == 0:
+def humanbytes(byte_count: int):
+    if byte_count == 0:
         return '0B'
-    i = math.floor(math.log(bs, 1024))
-    return f'{(bs / pow(1024, i)):.2f}{UNITS[i]}'
+    i = math.floor(math.log(byte_count, 1024))
+    return f'{(byte_count / pow(1024, i)):.2f}{UNITS[i]}'
 
 def rimraf(filepath: Path):
     if filepath == Path.cwd():

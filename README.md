@@ -1,7 +1,7 @@
 Sweetener
 =========
 
-[![Python package](https://github.com/samvv/sweetener/actions/workflows/python-package.yml/badge.svg)](https://github.com/samvv/sweetener/actions/workflows/python-package.yml) [![Coverage Status](https://coveralls.io/repos/github/samvv/sweetener/badge.svg?branch=master)](https://coveralls.io/github/samvv/sweetener?branch=master)
+[![Python package](https://github.com/samvv/sweetener/actions/workflows/python-package.yml/badge.svg)](https://github.com/samvv/sweetener/actions/workflows/python-package.yml) [![Coverage Status](https://coveralls.io/repos/github/samvv/sweetener/badge.svg?branch=main)](https://coveralls.io/github/samvv/sweetener?branch=main)
 
 Sweetener is a Python library that contains some generic algorithms and data
 structures not found in the standard libary. Extra care has been taken to make
@@ -10,10 +10,14 @@ still missing something, do not hesitate to file an [issue][1]!
 
 In particular, this library contains the following goodies:
 
-  - **Generic procedures** like `clone`, `equal` and `lte` that work on most
-    types in the standard library and you can specialize for your own types.
-  - **Tools for lexing and parsing**, including tools for creating fully typed
-    AST nodes, writing them to disk, and visualizing them using GraphViz.
+ - **A typed record type** that allows you to build PODs very quickly.
+ - **Base classes for an AST/CST**, including reflection procedures.
+ - **Functions and objects for managing terminal style** that are automatically
+   activated if the terminal supports it.
+ - **A means for writing diagnostics** that can also print part of your source code alongside 
+   your error messages.
+ - **Generic procedures** like `clone`, `equal` and `lte` that work on most
+   types in the standard library and you can specialize for your own types.
 
 [1]: https://github.com/samvv/sweetener/issues
 
@@ -39,7 +43,58 @@ visualize(r1)
 
 Running this program will open a new window with the following content:
 
-<img src="https://raw.githubusercontent.com/samvv/sweetener/master/sample-record.png" />
+<img src="https://raw.githubusercontent.com/samvv/sweetener/main/sample-record.png" />
+
+```py
+from sweetener import BaseNode, visualize
+
+class CalcNode(BaseNode):
+    pass
+
+class Expr(CalcNode):
+    pass
+
+class Add(Expr):
+    left: Expr
+    right: Expr
+
+class Sub(Expr):
+    left: Expr
+    right: Expr
+
+class Var(Expr):
+    name: str
+
+class Lit(Expr):
+    value: int
+
+prog = Sub(
+    Add(
+        Lit(1),
+        Lit(2)
+    ),
+    Var('x')
+)
+
+def eval(node: Expr, vars = {}) -> int:
+    if isinstance(node, Add):
+        return eval(node.left, vars) + eval(node.right, vars)
+    if isinstance(node, Sub):
+        return eval(node.left, vars) - eval(node.right, vars)
+    if isinstance(node, Lit):
+        return node.value
+    if isinstance(node, Var):
+        return vars[node.name]
+    raise RuntimeError('Could not evaluate a node: unrecognised node type')
+
+assert(eval(prog, { 'x': 3 }) == 0)
+
+visualize(prog, format='png')
+```
+
+Running this example will open a new window with the following content:
+
+<img src="https://raw.githubusercontent.com/samvv/sweetener/main/sample-calc-record.png" />
 
 ## License
 

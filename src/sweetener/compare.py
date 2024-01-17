@@ -2,7 +2,7 @@
 from .clazz import hasmethod
 from .common import ischar, isprimitive
 
-_TYPE_INDICES = [bool, int, float, str, tuple, list]
+_type_indices = [bool, int, float, str, tuple, list]
 
 def lt(v1, v2):
     if isinstance(v1, bool) and isinstance(v2, bool): \
@@ -25,7 +25,7 @@ def lt(v1, v2):
                 return True
         return False
     else:
-        return _TYPE_INDICES.index(v1.__class__) < _TYPE_INDICES.index(v2.__class__)
+        return _type_indices.index(v1.__class__) < _type_indices.index(v2.__class__)
 
 def eq(a, b):
     if hasmethod(a, 'equal') and hasmethod(b, 'equal'):

@@ -1,18 +1,40 @@
 
+import inspect
 from pathlib import Path
-import os
+from typing import Any, cast
+
+from sweetener.logging import warn
+from sweetener.util import nonnull
+
 try:
     import graphviz
 except ImportError:
     graphviz = None
 
+from .record import Record, satisfies_type
 from .common import isprimitive
 from .clazz import hasmethod
 
 HORIZONTAL = 1
 VERTICAL   = 2
 
-_GRAPHS_DIR = Path('.pygraphs')
+_graphs_dir = Path('.pygraphs')
+
+_plotters = list()
+
+def _plot_record(record: Record, plot: 'Plot'):
+    node = plot.add_node(label=record.__class__.__name__, shape='record', direction=VERTICAL)
+    for (key, value) in record.fields.items():
+        p = plot.nest(value, key=key)
+        if p.is_embeddable:
+            row = node.label.add_cells(direction=HORIZONTAL, key=f'field-{key}')
+            row.add_text(key)
+            row.add_element(p)
+        else:
+            plot.add_edge(node, p, label=key)
+    return node
+
+_plotters.append(_plot_record)
 
 def invert_direction(direction):
     if direction == HORIZONTAL:
@@ -21,9 +43,12 @@ def invert_direction(direction):
         return HORIZONTAL
 
 class PlotElement:
-    def __init__(self, key):
+
+    is_embeddable: bool
+
+    def __init__(self, key: str | None) -> None:
         self.key = key
-        self.id = None
+        self.id: str | None = None
 
 class PlotRef(PlotElement):
 
@@ -48,7 +73,7 @@ class Plot(PlotElement):
         self.visited = visited
         self.children = []
 
-    def add_node(self, *args, **kwargs):
+    def add_node(self, *args, **kwargs) -> 'PlotNode':
         node = PlotNode(*args, **kwargs)
         self.children.append(node)
         return node
@@ -64,13 +89,13 @@ class Plot(PlotElement):
         self.children.append(ref)
         return ref
 
-    def __call__(self, value, key):
+    def nest(self, value, key) -> PlotElement:
         if isprimitive(value):
             return PlotText(str(value), key=key)
         elif isinstance(value, list):
             table = PlotCells(direction=VERTICAL, key=key)
             for i, child in enumerate(value):
-                p = self(child, key=i)
+                p = self.nest(child, key=i)
                 row = table.add_cells(direction=HORIZONTAL, key=f'{i}-row')
                 if p.is_embeddable:
                     row.add_element(p)
@@ -81,8 +106,8 @@ class Plot(PlotElement):
         elif isinstance(value, dict):
             table = PlotCells(direction=VERTICAL, key=key)
             for i, (k, v) in enumerate(value.items()):
-                p1 = self(k, f'{i}-key')
-                p2 = self(v, f'{i}-value')
+                p1 = self.nest(k, f'{i}-key')
+                p2 = self.nest(v, f'{i}-value')
                 row = table.add_cells(direction=HORIZONTAL, key=f'{i}-row')
                 if p1.is_embeddable:
                     row.add_element(p1)
@@ -108,6 +133,14 @@ class Plot(PlotElement):
             #  self.visited[value] = PlotResult(result)
             return result
         else:
+            for proc in _plotters:
+                sig = inspect.signature(proc)
+                ty = next(iter(sig.parameters.values()))
+                if satisfies_type(value, ty.annotation):
+                    new_plot = Plot(self.referenced, self.visited, key=key)
+                    self.children.append(new_plot)
+                    result = proc(value, new_plot)
+                    return result
             raise RuntimeError(f"did not know how to plot {value}")
 
 class PlotNode(PlotElement):
@@ -165,17 +198,21 @@ class PlotEdge(PlotElement):
         self.b = b
         self.label = label
 
-def visualize(value, name=None, view=True):
+def visualize(value: Any, name: str | None = None, format: str | None = None, view = True) -> None:
+
+    if graphviz is None:
+        warn("Package 'graphviz' is not installed. Install it with pip install --user -U graphviz")
+        return
 
     referenced = []
     visited = dict()
     plot = Plot(referenced, visited, None)
-    result = plot(value, None)
+    result = plot.nest(value, None)
 
     def encode_path(path):
         return '.'.join(str(chunk) for chunk in path)
 
-    def update_cells_ids(element, path, cells_path):
+    def update_cells_ids(element: PlotCells, path: list[str | int], cells_path):
 
         new_cells_path = list(cells_path)
         if element.key is not None:
@@ -193,8 +230,7 @@ def visualize(value, name=None, view=True):
         else:
             raise NotImplementedError(f"did not know how to update IDs of {element}")
 
-
-    def update_ids(element, path, cells_path=[]):
+    def update_ids(element: PlotElement, path: list[str | int]):
 
         element.id = encode_path(path)
         new_path = list(path)
@@ -214,28 +250,28 @@ def visualize(value, name=None, view=True):
         else:
             raise NotImplementedError(f"did not know how to update IDs of {element}")
 
-    _GRAPHS_DIR.mkdir(parents=True, exist_ok=True)
+    _graphs_dir.mkdir(parents=True, exist_ok=True)
     if name is None:
-        i = len(list(_GRAPHS_DIR.iterdir()))
-        filename = _GRAPHS_DIR / f"temp{i}.gv"
+        i = len(list(_graphs_dir.iterdir()))
+        filename = _graphs_dir / f"temp{i}.gv"
     else:
-        filename = _GRAPHS_DIR / f"{name}.gv"
+        filename = _graphs_dir / f"{name}.gv"
 
     dot = graphviz.Digraph(filename=filename)
 
-    def render_graph(result, key, dot):
+    def render_graph(result: PlotElement, key: str | int) -> None:
 
         nodes = []
         edges = []
 
-        def render_cells(cells, curr_direction=HORIZONTAL, is_first=True):
+        def render_cells(cells: PlotCells, curr_direction=HORIZONTAL, is_first=True) -> str:
             out = ''
             if cells.direction != curr_direction:
                 out += '{'
             for i, element in enumerate(cells.children):
                 if i > 0: out += ' | '
                 if isinstance(element, PlotText):
-                    chunks = element.id.split(':')
+                    chunks = cast(str, element.id,).split(':')
                     if len(chunks) == 2:
                         out += ' <' + chunks[1] + '> '
                     out += element.text
@@ -247,7 +283,7 @@ def visualize(value, name=None, view=True):
                 out += '}'
             return out
 
-        def render_element(element):
+        def render_element(element: PlotElement) -> None:
             if isinstance(element, PlotNode):
                 label = render_cells(element.label)
                 nodes.append((element.id, label, element.shape, 'transparent'))
@@ -268,17 +304,16 @@ def visualize(value, name=None, view=True):
         for a, b, label in edges:
             dot.edge(a, b, label)
 
-
     update_ids(plot, ['root'])
     for i, reference in enumerate(referenced):
         update_ids(reference, [i])
 
+    render_graph(plot, 'root')
 
-    render_graph(plot, 'root', dot)
     for i, reference in enumerate(referenced):
-        with dot.subgraph(name=f'cluster_{i}') as s:
+        with nonnull(dot.subgraph(name=f'cluster_{i}')) as s:
             s.attr(style='filled', color='lightgrey')
-            render_graph(reference, i, dot)
+            render_graph(reference, i)
 
-    print(str(dot))
-    dot.render(view=view)
+    dot.render(view=view, format=format)
+

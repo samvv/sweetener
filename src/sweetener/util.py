@@ -1,11 +1,16 @@
 
-from typing import List, Any
+import inspect
+from typing import Callable, Iterable, Optional, Any, Sequence, Type, TypeVar, cast
 from functools import reduce, wraps
 
 _next_type_id = 0
 _type_index = dict()
 
-def register_type(ty):
+_T = TypeVar('_T')
+_A = TypeVar('_A')
+_B = TypeVar('_B')
+
+def register_type(ty: Type) -> None:
     global _next_type_id
     index = _next_type_id
     _next_type_id += 1
@@ -25,7 +30,7 @@ def get_type_index(ty):
         raise RuntimeError(f"could not determine type index of {ty}: type was not registered during this execution")
     return index
 
-def flatten(l):
+def flatten(l: Iterable[list[_T]]) -> Sequence[_T]:
     return sum(l, [])
 
 foldl = reduce
@@ -35,14 +40,16 @@ def get_class_name(value):
             if type(value) is type \
             else value.__class__.__name__
 
-def flip(func):
+def flip(func: Callable[[_A, _B], _T]) -> Callable[[_B, _A], _T]:
     @wraps(func)
-    def newfunc(x, y):
+    def wrapper(x, y):
         return func(y, x)
-    return newfunc
+    return wrapper
 
-def foldr(func, xs, acc):
-    return reduce(flip(func), reversed(xs), acc)
+def foldr(func: Callable[[_T, _A], _A], xs: Sequence[_T], acc: _A) -> _A:
+    for x in reversed(xs):
+         acc = func(x, acc)
+    return acc
 
 def pretty_enum(elements, default='nothing'):
     elements = iter(elements)
@@ -64,7 +71,10 @@ def pretty_enum(elements, default='nothing'):
         prev_element = element
     return result + ' or ' + prev_element
 
-def make_comparator(less_than):
+type CompareFn[_T] = Callable[[_T, _T], bool]
+type WeightFn[_T] = Callable[[_T, _T], int]
+
+def make_comparator(less_than: CompareFn[_T]) -> WeightFn:
     def compare(x, y):
         if less_than(x, y):
             return -1
@@ -77,10 +87,13 @@ _type_list = [ type(None), bool, int, float, str, tuple, list, dict ]
 
 def lt(v1, v2):
     match (v1, v2):
-        case (bool(), bool()) \
-            | (int(), int()) \
-            | (float(), float()) \
-            | (str(), str()):
+        case (bool(), bool()):
+            return v1 < v2
+        case (int(), int()):
+            return v1 < v2
+        case (float(), float()):
+            return v1 < v2
+        case (str(), str()):
             return v1 < v2
         case (tuple(), tuple()) | (list(), list()):
             if len(v1) != len(v2):
@@ -164,4 +177,8 @@ def lift_key(proc, path):
     def lifted(*args):
         return proc(*(resolve(arg, path) for arg in args))
     return lifted
+
+def nonnull(value: Optional[_T]) -> _T:
+    assert(value is not None)
+    return value
 

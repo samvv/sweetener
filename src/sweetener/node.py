@@ -1,5 +1,6 @@
 
 from collections import deque
+from typing import Optional
 
 from .iterator import first, last
 from .record import Record
@@ -44,7 +45,7 @@ class BaseNode(Record):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.parent = None
+        self.parent: Optional['BaseNode'] = None
         self.path = None
         self._prev_child = False
         self._next_child = False

@@ -1,5 +1,5 @@
 
-from .heapsort import isheap, isheap, heapsort, heapify
+from .sorting import isheap, isheap, heapsort, heapify
 
 def test_isheap_last_element_greater():
     l1 = [4,3,2,5]

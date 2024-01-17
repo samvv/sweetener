@@ -1,28 +1,18 @@
 
 import re
 import io
+from typing import TextIO
+from colorama import Fore, Back, Style
 
 from .ansicodes import *
 from .colors import *
 from .math import count_digits
 
-_color_to_ansi = {
-    BLACK: ANSI_BLACK,
-    RED: ANSI_RED,
-    GREEN: ANSI_GREEN,
-    YELLOW: ANSI_YELLOW,
-    BLUE: ANSI_BLUE,
-    MAGENTA: ANSI_MAGENTA,
-    CYAN: ANSI_CYAN,
-    WHITE: ANSI_WHITE,
-    TRANSPARENT: '',
-    }
-
 _re_whitespace = re.compile('[\n\r\t ]')
 
 class IndentWriter:
 
-    def __init__(self, out=None, indentation='  '):
+    def __init__(self, out: io.TextIOBase | None = None, indentation='  '):
         if out is None:
             out = io.StringIO()
         self.output = out
@@ -41,7 +31,7 @@ class IndentWriter:
     def ensure_trailing_lines(self, count):
         self.write('\n' * max(0, count - self.newline_count))
 
-    def write(self, text):
+    def write(self, text: str) -> None:
         for ch in text:
             if ch == '\n':
                 self.newline_count = self.newline_count + 1 if self.at_blank_line else 1
@@ -56,7 +46,7 @@ EOF = '\uFFFF'
 
 class LineIndex:
 
-    def __init__(self, text):
+    def __init__(self, text: str):
         self.text = text
         self.lines = list()
 
@@ -132,7 +122,7 @@ class LineIndex:
 
 class TextFile:
 
-    def __init__(self, text='', name=None):
+    def __init__(self, text='', name: str | None = None):
         self.text = text
         self.name = name
         self._line_index = LineIndex(text)
@@ -152,7 +142,16 @@ class TextFile:
     def __getitem__(self, index):
         return self.text[index]
 
-def write_excerpt(out, text, span, lines_pre=1, lines_post=1, gutter_width=None, message=None, line_color=WHITE):
+def write_excerpt(
+    out: TextIO,
+    text: TextFile | str,
+    span: tuple[int, int],
+    lines_pre=1,
+    lines_post=1,
+    gutter_width: int | None = None,
+    message: str | None = None,
+    line_color: Color = WHITE,
+):
 
     if not isinstance(text, TextFile):
         text = TextFile(text)
@@ -188,17 +187,17 @@ def write_excerpt(out, text, span, lines_pre=1, lines_post=1, gutter_width=None,
     def print_guttered(start, end):
         nonlocal out, line, at_blank_line
         for i in range(start, end):
-            out.write(text[i])
+            write(text[i])
 
     def print_gutter(line=None):
         nonlocal out
         num_width = 0 if line is None else count_digits(line)
-        out += termstyle.FG_BLACK + termstyle.BG_WHITE
+        out.write(Fore.BLACK + Back.WHITE)
         for i in range(0, gutter_width - num_width):
-            out += ' '
+            out.write(' ')
         if line is not None:
-            out += str(line)
-        out += termstyle.RESET + ' '
+            out.write(str(line))
+        out.write(Style.RESET_ALL + ' ')
 
     def print_underline():
         nonlocal out
@@ -208,12 +207,12 @@ def write_excerpt(out, text, span, lines_pre=1, lines_post=1, gutter_width=None,
         if l > k:
             out.write('\n')
             print_gutter()
-            for i in range(0, k-1):
-                out += ' '
-            out += termstyle.FG_RED
-            for i in range(k-1, l-1):
-                out += '~'
-            out += termstyle.RESET
+            for _ in range(0, k-1):
+                out.write(' ')
+            out.write(Fore.RED)
+            for _ in range(k-1, l-1):
+                out.write('~')
+            out.write(Style.RESET_ALL)
 
     print_gutter(line)
 
