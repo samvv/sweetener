@@ -18,3 +18,6 @@ dist/
 
 # Used by pyenv to determine Python version
 .python-version
+
+# Sandbox directory for temporary code
+/snippets/
