@@ -12,7 +12,7 @@ _re_whitespace = re.compile('[\n\r\t ]')
 
 class IndentWriter:
 
-    def __init__(self, out: io.TextIOBase | None = None, indentation='  '):
+    def __init__(self, out: TextIO | None = None, indentation='  '):
         if out is None:
             out = io.StringIO()
         self.output = out
