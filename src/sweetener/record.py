@@ -22,6 +22,12 @@ def satisfies_type(value: Any, ty: Type) -> bool:
     if ty is typing.Any:
         return True
 
+    if isinstance(ty, typing.NewType):
+        return satisfies_type(value, ty.__supertype__)
+
+    if isinstance(ty, typing.TypeAliasType):
+        return satisfies_type(value, ty.__value__)
+
     origin = typing.get_origin(ty)
 
     if origin is None:
