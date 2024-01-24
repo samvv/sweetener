@@ -1,10 +1,14 @@
 
 from collections import deque
-from typing import Optional
+from typing import Generator, Literal
 
 from .iterator import first, last
 from .record import Record
-from .ops import clone, expand, increment_key, decrement_key, resolve, erase
+from .ops import expand, increment_key, decrement_key, resolve, erase
+
+type Path = list[str | int]
+
+type Unassigned = Literal[False]
 
 def breadthfirst(root, expand):
     queue = deque([ root ])
@@ -45,22 +49,25 @@ class BaseNode(Record):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.parent: Optional['BaseNode'] = None
-        self.path = None
-        self._prev_child = False
-        self._next_child = False
+        self.parent: BaseNode | None = None
+        self.path: Path | None = None
+        self._prev_child: BaseNode | None | Unassigned = False
+        self._next_child: BaseNode | None | Unassigned = False
 
     def get_full_path(self):
         path = []
         node = self
-        while node is not None:
-            for element in reversed(node.path.elements):
-                path.append(element)
+        while True:
+            assert(node.path is not None)
+            path.extend(reversed(node.path))
+            node = node.parent
+            if node is None:
+                break
         path.reverse()
         return path
 
     @property
-    def prev_child(self):
+    def prev_child(self) -> 'BaseNode | None':
         if self._prev_child != False:
             return self._prev_child
         path = self.path
@@ -80,7 +87,7 @@ class BaseNode(Record):
         return node
 
     @property
-    def next_child(self):
+    def next_child(self) -> 'BaseNode | None':
         if self._next_child != False:
             return self._next_child
         node = self.parent
@@ -101,20 +108,27 @@ class BaseNode(Record):
         self._next_child = node
         return node
 
-    def remove(self):
+    def next_sibling(self) -> 'BaseNode | None':
+        pass
+
+    def prev_sibling(self) -> 'BaseNode | None':
+        pass
+
+    def remove(self) -> None:
         if self._prev_child:
             self._prev_child._next_child = self.next_child
         if self._next_child:
             self._next_child._prev_child = self.prev_child
         if self.parent is not None:
             for field_name, field_value in self.parent.fields.items():
+                # TODO make use of self.path
                 for path, child in preorder_with_paths(field_value, expand=expand_no_basenode):
                     if child == self:
                         path.insert(0, field_name)
                         value = resolve(self.parent, path[:-1])
                         erase(value, path[-1])
 
-    def replace_with(self, new_node):
+    def replace_with(self, new_node: 'BaseNode') -> None:
         new_node.parent = self.parent
         new_node.path = self.path
         if self._prev_child:
@@ -130,20 +144,20 @@ class BaseNode(Record):
                         value[path[-1]] = new_node
 
     @property
-    def first_child(self):
+    def first_child(self) -> 'BaseNode | None':
         return first(self.get_child_nodes())
 
     @property
-    def last_child(self):
+    def last_child(self) -> 'BaseNode | None':
         return last(self.get_child_nodes())
 
-    def get_all_child_nodes(self):
+    def get_all_child_nodes(self) -> Generator['BaseNode', None, None]:
         for field_value in self.fields.values():
             for child in preorder(field_value):
                 if isinstance(child, BaseNode):
                     yield child
 
-    def get_child_nodes(self):
+    def get_child_nodes(self) -> Generator['BaseNode', None, None]:
         for field_value in self.fields.values():
             for child in preorder(field_value, expand=expand_no_basenode):
                 if isinstance(child, BaseNode):
@@ -153,7 +167,7 @@ def expand_no_basenode(value):
     if not isinstance(value, BaseNode):
         yield from expand(value)
 
-def set_parent_nodes(node, parent=None, path=[]):
+def set_parent_nodes(node: BaseNode, parent: BaseNode | None = None, path: Path = []) -> None:
     node.parent = parent
     node.path = path
     for field_name, field_value in node.fields.items():

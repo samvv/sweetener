@@ -33,20 +33,23 @@ def test_node_set_parent_nodes():
     assert(n3.parent == root)
     assert(n00.parent == n0)
 
-
 def test_node_first_last_property():
 
     n00 = Leaf(0)
-    n0 = NAry([ n00 ])
-    n1 = Leaf(1)
-    n2 = Leaf(2)
-    n3 = Leaf(3)
+    n010 = Leaf(1)
+    n01 = NAry([ n010 ])
+    n0 = NAry([ n00, n01 ])
+    n1 = Leaf(2)
+    n2 = Leaf(3)
+    n3 = Leaf(4)
     root = NAry([ n0, n1, n2, n3 ])
 
     assert(root.first_child == n0)
     assert(root.last_child == n3)
+    assert(n01.first_child == n010)
+    assert(n01.last_child == n010)
     assert(n0.first_child == n00)
-    assert(n0.last_child == n00)
+    assert(n0.last_child == n01)
     assert(n00.first_child is None)
     assert(n00.last_child is None)
 
@@ -68,7 +71,7 @@ def test_node_next_child():
     assert(n2.next_child == n3)
     assert(n3.next_child is None)
 
-def test_node_prev_node():
+def test_node_prev_child():
 
     n00 = Leaf(0)
     n0 = NAry([ n00 ])
@@ -101,6 +104,8 @@ def test_replace_with_node():
     n00.replace_with(n4)
 
     assert(n4.parent == n0)
+    assert(n0.first_child == n4)
+    assert(n0.last_child == n4)
     assert(n0.children[0] == n4)
 
 def test_remove_node():
@@ -117,3 +122,21 @@ def test_remove_node():
     n00.remove()
 
     assert(len(n0.children) == 0)
+
+def test_get_full_path():
+
+    n00 = Leaf(0)
+    n0 = Leaf(1)
+    n1 = NAry([ n00 ])
+    n2 = Leaf(2)
+    n3 = Leaf(3)
+    root = NAry([ n0, n1, n2, n3 ])
+
+    set_parent_nodes(root)
+
+    p = n00.get_full_path()
+    assert(p[0] == 'children')
+    assert(p[1] == 1)
+    assert(p[2] == 'children')
+    assert(p[3] == 0)
+

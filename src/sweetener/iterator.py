@@ -1,4 +1,6 @@
 
+from typing import Any
+
 from .clazz import hasmethod
 
 def is_empty(iterator):
@@ -23,6 +25,6 @@ def last(iterator):
         last_element = element
     return last_element
 
-def is_iterator(value):
+def is_iterator(value: Any) -> bool:
     return hasmethod(value, '__next__')
 
