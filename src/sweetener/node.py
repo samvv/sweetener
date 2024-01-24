@@ -51,8 +51,8 @@ class BaseNode(Record):
         super().__init__(*args, **kwargs)
         self.parent: BaseNode | None = None
         self.path: Path | None = None
-        self._prev_child: BaseNode | None | Unassigned = False
-        self._next_child: BaseNode | None | Unassigned = False
+        self._prev_sibling: BaseNode | None | Unassigned = False
+        self._next_sibling: BaseNode | None | Unassigned = False
 
     def get_full_path(self):
         path = []
@@ -67,9 +67,9 @@ class BaseNode(Record):
         return path
 
     @property
-    def prev_child(self) -> 'BaseNode | None':
-        if self._prev_child != False:
-            return self._prev_child
+    def prev_sibling(self) -> 'BaseNode | None':
+        if self._prev_sibling != False:
+            return self._prev_sibling
         path = self.path
         while True:
             path = decrement_key(self.parent, path, expand=expand_no_basenode)
@@ -81,15 +81,15 @@ class BaseNode(Record):
                 # while node.last_child:
                 #     node = node.last_child
                 break
-        self._prev_child = node
+        self._prev_sibling = node
         if node is not None:
-            node._next_child = self
+            node._next_sibling = self
         return node
 
     @property
-    def next_child(self) -> 'BaseNode | None':
-        if self._next_child != False:
-            return self._next_child
+    def next_sibling(self) -> 'BaseNode | None':
+        if self._next_sibling != False:
+            return self._next_sibling
         node = self.parent
         path = self.path
         while True:
@@ -105,20 +105,14 @@ class BaseNode(Record):
                 if isinstance(value, BaseNode):
                     node = value
                     break
-        self._next_child = node
+        self._next_sibling = node
         return node
 
-    def next_sibling(self) -> 'BaseNode | None':
-        pass
-
-    def prev_sibling(self) -> 'BaseNode | None':
-        pass
-
     def remove(self) -> None:
-        if self._prev_child:
-            self._prev_child._next_child = self.next_child
-        if self._next_child:
-            self._next_child._prev_child = self.prev_child
+        if self._prev_sibling:
+            self._prev_sibling._next_sibling = self.next_sibling
+        if self._next_sibling:
+            self._next_sibling._prev_sibling = self.prev_sibling
         if self.parent is not None:
             for field_name, field_value in self.parent.fields.items():
                 # TODO make use of self.path
@@ -131,10 +125,10 @@ class BaseNode(Record):
     def replace_with(self, new_node: 'BaseNode') -> None:
         new_node.parent = self.parent
         new_node.path = self.path
-        if self._prev_child:
-            self._prev_child._next_child = new_node
-        if self._next_child:
-            self._next_child._prev_child = new_node
+        if self._prev_sibling:
+            self._prev_sibling._next_sibling = new_node
+        if self._next_sibling:
+            self._next_sibling._prev_sibling = new_node
         if self.parent is not None:
             for field_name, field_value in self.parent.fields.items():
                 for path, child in preorder_with_paths(field_value, expand=expand_no_basenode):

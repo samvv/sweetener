@@ -64,12 +64,12 @@ def test_node_next_child():
 
     set_parent_nodes(root)
 
-    assert(root.next_child is None)
-    assert(n00.next_child is None)
-    assert(n0.next_child == n1)
-    assert(n1.next_child == n2)
-    assert(n2.next_child == n3)
-    assert(n3.next_child is None)
+    assert(root.next_sibling is None)
+    assert(n00.next_sibling is None)
+    assert(n0.next_sibling == n1)
+    assert(n1.next_sibling == n2)
+    assert(n2.next_sibling == n3)
+    assert(n3.next_sibling is None)
 
 def test_node_prev_child():
 
@@ -82,12 +82,12 @@ def test_node_prev_child():
 
     set_parent_nodes(root)
 
-    assert(root.prev_child is None)
-    assert(n0.prev_child is None)
-    assert(n00.prev_child is None)
-    assert(n1.prev_child == n0)
-    assert(n2.prev_child == n1)
-    assert(n3.prev_child == n2)
+    assert(root.prev_sibling is None)
+    assert(n0.prev_sibling is None)
+    assert(n00.prev_sibling is None)
+    assert(n1.prev_sibling == n0)
+    assert(n2.prev_sibling == n1)
+    assert(n3.prev_sibling == n2)
 
 def test_replace_with_node():
 
