@@ -1,6 +1,6 @@
 
 from collections import deque
-from typing import Generator, Literal
+from typing import Any, Generator, Literal, cast
 
 from .iterator import first, last
 from .record import Record
@@ -50,7 +50,7 @@ class BaseNode(Record):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.parent: BaseNode | None = None
-        self.path: Path | None = None
+        self.parent_path: Path | None = None
         self._prev_sibling: BaseNode | None | Unassigned = False
         self._next_sibling: BaseNode | None | Unassigned = False
 
@@ -58,8 +58,8 @@ class BaseNode(Record):
         path = []
         node = self
         while True:
-            assert(node.path is not None)
-            path.extend(reversed(node.path))
+            assert(node.parent_path is not None)
+            path.extend(reversed(node.parent_path))
             node = node.parent
             if node is None:
                 break
@@ -70,9 +70,10 @@ class BaseNode(Record):
     def prev_sibling(self) -> 'BaseNode | None':
         if self._prev_sibling != False:
             return self._prev_sibling
-        path = self.path
+        path = self.parent_path
         while True:
             path = decrement_key(self.parent, path, expand=expand_no_basenode)
+            # `path` may be `None`, but also `[]`
             if not path:
                 return None
             value = resolve(self.parent, path)
@@ -91,7 +92,7 @@ class BaseNode(Record):
         if self._next_sibling != False:
             return self._next_sibling
         node = self.parent
-        path = self.path
+        path = self.parent_path
         while True:
             if node is None:
                 return None
@@ -106,25 +107,59 @@ class BaseNode(Record):
                     node = value
                     break
         self._next_sibling = node
+        if node is not None:
+            node._prev_sibling = self
         return node
 
     def remove(self) -> None:
+
+        if self.parent is not None:
+
+            # If parent is set `parent_path` MUST also be set
+            assert(self.parent_path is not None)
+
+            def update_paths(value: Any, path: Path, k: int) -> None:
+                match value:
+                    case BaseNode() | dict():
+                        if isinstance(value, BaseNode) and value.parent_path is not None:
+                            value.parent_path[k] -= 1 # type: ignore
+                        for field_name, field_value in value.items():
+                            new_path = list(path)
+                            new_path.append(field_name)
+                            update_paths(field_value, new_path, k)
+                    case list() | tuple():
+                        for i in range(0, len(value)):
+                            new_path = list(path)
+                            new_path.append(i)
+                            update_paths(value, new_path, k)
+
+            # Get the structure that is holding `self`
+            parent = resolve(self.parent, self.parent_path[:-1])
+
+            if isinstance(parent, list):
+                key = self.parent_path[-1]
+                assert(isinstance(key, int))
+                key += 1
+                for i in range(key, len(parent)):
+                    element = parent[i]
+                    new_path = list(self.parent_path[:-1])
+                    new_path.append(i)
+                    update_paths(element, new_path, len(self.parent_path)-1)
+
+            # Remove `self` from the parent structure
+            key = self.parent_path[-1]
+            erase(parent, key)
+
+        # Update the sibling pointers only when they're already pointing to a node
+        # If they're pointing to None, no action needs to be taken
         if self._prev_sibling:
             self._prev_sibling._next_sibling = self.next_sibling
         if self._next_sibling:
             self._next_sibling._prev_sibling = self.prev_sibling
-        if self.parent is not None:
-            for field_name, field_value in self.parent.fields.items():
-                # TODO make use of self.path
-                for path, child in preorder_with_paths(field_value, expand=expand_no_basenode):
-                    if child == self:
-                        path.insert(0, field_name)
-                        value = resolve(self.parent, path[:-1])
-                        erase(value, path[-1])
 
     def replace_with(self, new_node: 'BaseNode') -> None:
         new_node.parent = self.parent
-        new_node.path = self.path
+        new_node.parent_path = self.parent_path
         if self._prev_sibling:
             self._prev_sibling._next_sibling = new_node
         if self._next_sibling:
@@ -163,7 +198,7 @@ def expand_no_basenode(value):
 
 def set_parent_nodes(node: BaseNode, parent: BaseNode | None = None, path: Path = []) -> None:
     node.parent = parent
-    node.path = path
+    node.parent_path = path
     for field_name, field_value in node.fields.items():
         for new_path, child in preorder_with_paths(field_value, expand=expand_no_basenode):
             if isinstance(child, BaseNode):

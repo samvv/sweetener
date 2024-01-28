@@ -483,6 +483,9 @@ class Record:
     def items(self):
         return self.fields.items()
 
+    def keys(self):
+        return self.fields.keys()
+
     def equal(self, other) -> bool:
         if self.__class__ != other.__class__:
             return False

@@ -13,7 +13,10 @@ class NAry(Node):
     children: List[Node]
 
 class Leaf(Node):
-    value: int
+    value: int | str
+
+class Matrix(Node):
+    elements: list[list[Node]]
 
 def test_node_set_parent_nodes():
 
@@ -122,6 +125,44 @@ def test_remove_node():
     n00.remove()
 
     assert(len(n0.children) == 0)
+
+    n2.remove()
+    assert(n3.next_sibling == None)
+    assert(n1.prev_sibling == n0)
+    assert(n1.next_sibling == n3)
+    assert(n3.prev_sibling == n1)
+    assert(len(root.children) == 3)
+    assert(root.children[0] == n0)
+    assert(root.children[1] == n1)
+    assert(root.children[2] == n3)
+
+def test_remove_node_nested():
+
+    n00 = Leaf('00')
+    n01 = Leaf('01')
+    n02 = Leaf('02')
+    n10 = Leaf('10')
+    n11 = Leaf('11')
+    n12 = Leaf('12')
+
+    m = Matrix([
+        [ n00, n01, n02 ],
+        [ n10, n11, n12 ],
+    ])
+
+    set_parent_nodes(m)
+
+    n01.remove()
+
+    assert(m.elements[0][0] == n00)
+    assert(m.elements[0][1] == n02)
+    assert(m.elements[1][0] == n10)
+    assert(m.elements[1][1] == n11)
+    assert(m.elements[1][2] == n12)
+
+    for row in m.elements:
+        for cell in row:
+            assert(resolve(m, cell.parent_path) == cell)
 
 def test_get_full_path():
 

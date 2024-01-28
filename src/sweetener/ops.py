@@ -1,5 +1,5 @@
 
-from typing import TypeVar
+from typing import Any, TypeVar
 
 from .clazz import hasmethod
 from .common import isprimitive
@@ -57,7 +57,7 @@ def erase(value, key):
     else:
         raise RuntimeError(f'did not know how to erase from key {key}')
 
-def increment_key(value, key, expand=expand):
+def increment_key(value: Any, key: Any, expand=expand) -> Any | None:
 
     if hasmethod(key, 'increment'):
         return key.increment(value)
@@ -97,19 +97,19 @@ def increment_key(value, key, expand=expand):
             return key+1 if key < len(value)-1 else None
 
         case str():
-            items = iter(value.items())
-            for k, _v in items:
+            keys = iter(value.keys())
+            for k in keys:
                 if k == key:
                     break
             try:
-                return next(items)[0]
+                return next(keys)
             except StopIteration:
                 return None
 
         case _:
             raise RuntimeError(f'did not know how to increment key {key}')
 
-def decrement_key(value, key, expand=expand):
+def decrement_key(value: Any, key: Any, expand=expand) -> Any:
 
     if hasmethod(key, 'decrement'):
         return key.decrement(value)
