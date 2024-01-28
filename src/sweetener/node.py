@@ -120,9 +120,10 @@ class BaseNode(Record):
 
             def update_paths(value: Any, path: Path, k: int) -> None:
                 match value:
-                    case BaseNode() | dict():
-                        if isinstance(value, BaseNode) and value.parent_path is not None:
+                    case BaseNode():
+                        if value.parent_path is not None:
                             value.parent_path[k] -= 1 # type: ignore
+                    case dict():
                         for field_name, field_value in value.items():
                             new_path = list(path)
                             new_path.append(field_name)
