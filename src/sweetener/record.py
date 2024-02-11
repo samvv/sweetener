@@ -1,5 +1,4 @@
 
-import yaml
 import types
 import typing
 from functools import cmp_to_key
@@ -534,6 +533,7 @@ class Record:
         return fields
 
     def dump(self) -> None:
+        import yaml
         print(yaml.dump(self.to_primitive()))
 
     # FIXME Either use this method or remove it
