@@ -1,41 +1,155 @@
-
-name: Python package
-
-on:
+name: Publish Python distribution to PyPI and TestPyPI
+on: 
   push:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+  tags:
+    - '*'
+  ignore-tags:
+    - latest
+    - nightly
 
 jobs:
-  build:
 
+  test:
     runs-on: ubuntu-latest
     strategy:
-      fail-fast: false
       matrix:
-        python-version: ["3.12"]
-
+        python-version: ["3.x"]
+        platform: [ubuntu-latest, macos-latest, windows-latest]
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v3
+      uses: actions/setup-python@5
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        python -m pip install flake8 pytest coverage python-coveralls
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        python -m pip install flake8 pyright pytest coverage python-coveralls
+        python -m pip install --user -e '.[test]'
     - name: Lint with flake8
       run: |
         # stop the build if there are Python syntax errors or undefined names
         flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
         # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+        pyright
     - name: Test with pytest while gathering statistics
       run: coverage run -m pytest
     - name: Publish results to Coveralls
       run: coveralls
       env:
         COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
+
+  build:
+    name: Build distribution
+    needs:
+    - test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        with:
+          python-version: '3.x'
+      - name: Install pypa/build
+        run: python3 -m pip install --user build
+      - name: Build a binary wheel and a soruce tarball
+        run: python3 -m build
+      - name: Store the distribution packages
+        uses:  actions/upload-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+      - name: Update the 'nightly' tag in Git
+        run: |
+          git tag nightly
+          git push origin nightly
+
+  publish-to-pypi:
+    name: Publish Python distribution to PyPI
+    if: ${{ startsWith(github.ref, 'refs/tags/') && github.ref != 'refs/tags/latest' && github.ref != 'refs/tags/nightly' }}
+    needs:
+    - build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/sweetener
+    permissions:
+      id-token: write # IMPORTANT: mandatory for trusted publishing
+    steps:
+    - name: Download all the dists
+      uses: actions/download-artifact@v4
+      with:
+        name: python-package-distributions
+        path: dist/
+    - name: Publish distribution to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+    - name: Update the 'latest' tag in Git
+      run: |
+        git tag latest
+        git push origin latest
+
+  publish-to-testpypi:
+    name: Publish Python distribution to TestPyPI
+    needs:
+    - build
+    runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/<package-name>
+    permissions:
+      id-token: write # IMPORTANT: mandatory for trusted publishing
+    steps:
+    - name: Download all the dists
+      uses: actions/download-artifact@v4
+      with:
+        name: python-package-distributions
+        path: dist/
+    - name: Publish distribution to TestPyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        repository-url: https://test.pypi.org/legacy/
+
+  github-release:
+    name: >-
+      Sign the Python distribution with Sigstore
+      and upload them to GitHub Release
+    needs:
+    - publish-to-pypi
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # IMPORTANT: mandatory for making GitHub Releases
+      id-token: write  # IMPORTANT: mandatory for sigstore
+    steps:
+    - name: Download all the dists
+      uses: actions/download-artifact@v4
+      with:
+        name: python-package-distributions
+        path: dist/
+    - name: Sign the dists with Sigstore
+      uses: sigstore/gh-action-sigstore-python@v1.2.3
+      with:
+        inputs: >-
+          ./dist/*.tar.gz
+          ./dist/*.whl
+    - name: Create GitHub Release
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      run: >-
+        gh release create
+        '${{ github.ref_name }}'
+        --repo '${{ github.repository }}'
+        --notes "This release was automatically created from associated tags"
+    - name: Upload artifact signatures to GitHub Release
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      # Upload to GitHub Release using the `gh` CLI.
+      # `dist/` contains the built packages, and the
+      # sigstore-produced signatures and certificates.
+      run: >-
+        gh release upload
+        '${{ github.ref_name }}' dist/**
+        --repo '${{ github.repository }}'
+
