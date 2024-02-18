@@ -10,7 +10,7 @@ long_description = (here / 'README.md').read_text(encoding='utf-8')
 
 setup(
     name='sweetener',
-    version='0.1.0',
+    version='0.2.0',
     description='A base library for writing compilers and interpreters',
     long_description=long_description,
     long_description_content_type='text/markdown',
@@ -34,7 +34,7 @@ setup(
     install_requires=[ 'colorama' ],
     extras_require={  # Optional
         'full': [ 'pyyaml', 'graphviz' ],
-        'dev': [ 'pyyaml', 'graphviz' ],
+        'dev': [ ],
         'test': ['pytest'],
     },
     project_urls={  # Optional
