@@ -459,7 +459,10 @@ class Record:
                 value = args[i]
                 i += 1
             else:
-                value = defaults[name]
+                # We do a clone here so we can e.g. assign an empty list to the
+                # default of a field and still be sure that each construction
+                # of the record has an unique empty list
+                value = clone(defaults[name])
             if not satisfies_type(value, ty):
                 raise TypeError(f"{value} did not satisfy type {ty}")
             self.__dict__[name] = value
