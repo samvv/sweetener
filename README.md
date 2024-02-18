@@ -65,14 +65,6 @@ class Var(Expr):
 class Lit(Expr):
     value: int
 
-prog = Sub(
-    Add(
-        Lit(1),
-        Lit(2)
-    ),
-    Var('x')
-)
-
 def eval(node: Expr, vars = {}) -> int:
     if isinstance(node, Add):
         return eval(node.left, vars) + eval(node.right, vars)
@@ -84,9 +76,17 @@ def eval(node: Expr, vars = {}) -> int:
         return vars[node.name]
     raise RuntimeError('Could not evaluate a node: unrecognised node type')
 
-assert(eval(prog, { 'x': 3 }) == 0)
+prog = Sub(
+    Add(
+        Lit(1),
+        Lit(2)
+    ),
+    Var('x')
+)
 
 visualize(prog, format='png')
+
+assert(eval(prog, { 'x': 3 }) == 0)
 ```
 
 Running this example will open a new window with the following content:
