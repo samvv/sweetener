@@ -64,7 +64,7 @@ jobs:
       - name: Update the 'nightly' tag in Git
         run: |
           git tag nightly
-          git push origin nightly
+          git push origin nightly --force
 
   publish-to-pypi:
     name: Publish Python distribution to PyPI
