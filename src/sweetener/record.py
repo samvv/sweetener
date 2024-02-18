@@ -245,7 +245,7 @@ def coerce(value: Any, ty: Type) -> Any:
                 raise CoercionError(f'could not coerce None to {ty} because None is not allowed')
             return None
         if has_non_cls:
-            raise CoercionError(f'could not coerce {value} to {ty} because {arg} cannot be joined with the other typing.Union elements')
+            raise CoercionError(f'could not coerce {value} to {ty} because {arg} cannot be joined with the other typing.Union elements') # type: ignore
         cls = get_common_superclass(classes)
         if cls is None:
             raise CoercionError(f'could not coerce {value} to {ty} because {ty} can be multiple unrelated types')

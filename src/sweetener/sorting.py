@@ -1,8 +1,7 @@
 
-from abc import abstractmethod
-from typing import Any, Callable, List, Optional, Protocol, TypeVar
+from typing import Any, Callable, Optional, Protocol, TypeVar, overload
 
-from .common import swap, lift
+from .common import PathLike, swap, lift
 
 K = TypeVar('K')
 
@@ -12,13 +11,14 @@ class Comparable(Protocol):
 foo: Comparable = int(1)
 
 T = TypeVar('T', bound=Comparable)
+Tc = TypeVar('Tc', bound=Comparable, contravariant=True)
 
 CompareFn = Callable[[T, T], bool]
 
 def _default_cmp(a: T, b: T) -> bool:
     return a < b
 
-def isheap(arr: List[T], cmp: Optional[CompareFn] = None):
+def isheap(arr: list[T], cmp: Optional[CompareFn] = None):
     if cmp is None:
         cmp = _default_cmp
     n = len(arr)
@@ -31,7 +31,7 @@ def isheap(arr: List[T], cmp: Optional[CompareFn] = None):
         return False
     return True
 
-def _sift_down(arr: List[T], n: int, max: int, cmp: CompareFn) -> None:
+def _sift_down(arr: list[T], n: int, max: int, cmp: CompareFn) -> None:
   while True:
     biggest = n
     c1 = 2*n
@@ -45,7 +45,7 @@ def _sift_down(arr: List[T], n: int, max: int, cmp: CompareFn) -> None:
     swap(arr, n, biggest)
     n = biggest
 
-def heapify(arr: List[T], *, cmp: Optional[CompareFn] = None) -> None:
+def heapify(arr: list[T], *, cmp: Optional[CompareFn] = None) -> None:
     if cmp is None:
         cmp = _default_cmp
     i = len(arr) // 2
@@ -54,7 +54,7 @@ def heapify(arr: List[T], *, cmp: Optional[CompareFn] = None) -> None:
       _sift_down(arr, i, max, cmp)
       i -= 1
 
-def heapinsert(arr: List[T], v: T, *, cmp: Optional[CompareFn] =None, key=None) -> None:
+def heapinsert(arr: list[T], v: T, *, cmp: Optional[CompareFn] =None, key=None) -> None:
     if cmp is None:
         cmp = _default_cmp
     if key is not None:
@@ -62,7 +62,7 @@ def heapinsert(arr: List[T], v: T, *, cmp: Optional[CompareFn] =None, key=None) 
     arr.append(v)
     _sift_down(arr, 0, len(arr)-1, cmp)
 
-def sortheap(a: List[T], *, cmp: Optional[CompareFn] = None, key=None) -> None:
+def sortheap(a: list[T], *, cmp: Optional[CompareFn] = None, key=None) -> None:
     if cmp is None:
         cmp = _default_cmp
     if key is not None:
@@ -73,7 +73,13 @@ def sortheap(a: List[T], *, cmp: Optional[CompareFn] = None, key=None) -> None:
         _sift_down(a, 0, j, cmp)
         j -= 1
 
-def heapsort(a: List[T], *, cmp: Optional[CompareFn] = None, key=None) -> None:
+@overload
+def heapsort(a: list[T], *, cmp: CompareFn, key: PathLike | None = None) -> None: ...
+
+@overload
+def heapsort(a: list[Tc], *, key: PathLike | None = None) -> None: ...
+
+def heapsort(a: list[T], *, cmp: CompareFn | None = None, key: PathLike | None = None) -> None:
     if cmp is None:
         cmp = _default_cmp
     if key is not None:
@@ -81,7 +87,7 @@ def heapsort(a: List[T], *, cmp: Optional[CompareFn] = None, key=None) -> None:
     heapify(a, cmp=cmp)
     sortheap(a, cmp=cmp)
 
-def quicksort(arr: List[T], low: Optional[int] = None, high: Optional[int] = None, cmp: Optional[CompareFn] = None):
+def quicksort(arr: list[T], low: Optional[int] = None, high: Optional[int] = None, cmp: Optional[CompareFn] = None):
 
     if cmp is None:
         cmp = _default_cmp
