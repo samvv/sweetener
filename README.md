@@ -1,7 +1,7 @@
 Sweetener
 =========
 
-[![Python package](https://github.com/samvv/sweetener/actions/workflows/python-package.yml/badge.svg)](https://github.com/samvv/sweetener/actions/workflows/python-package.yml) [![Coverage Status](https://coveralls.io/repos/github/samvv/sweetener/badge.svg?branch=main)](https://coveralls.io/github/samvv/sweetener?branch=main)
+[![Python package](https://github.com/samvv/sweetener/actions/workflows/python-package.yml/badge.svg)](https://github.com/samvv/sweetener/actions/workflows/python-package.yml) [![Coverage Status](https://coveralls.io/repos/github/samvv/sweetener/badge.svg?branch=main)](https://coveralls.io/github/samvv/sweetener?branch=main) [![PyPI version](https://badge.fury.io/py/sweetener.svg)](https://pypi.org/project/sweetener)
 
 Sweetener is a Python library for quickly prototyping compilers and
 interpreters. Extra care has been taken to make the algorithms as flexible as
