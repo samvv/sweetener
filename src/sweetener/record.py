@@ -228,7 +228,7 @@ def coerce(value: Any, ty: Type) -> Any:
 
         raise CoercionError(f'could not coerce {value} to {ty} because no known coercions exist for {ty}')
 
-    if origin is typing.Union:
+    if origin is typing.Union or origin == types.UnionType:
         classes = []
         has_none = False
         has_non_cls = False
