@@ -91,7 +91,7 @@ visualize(prog, format='png')
 
 Running this example will open a new window with the following content:
 
-<img src="https://raw.githubusercontent.com/samvv/sweetener/main/sample-calc-record.png" />
+<img src="https://raw.githubusercontent.com/samvv/sweetener/main/sample-record.png" />
 
 ## License
 
