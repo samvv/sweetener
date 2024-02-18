@@ -34,7 +34,7 @@ setup(
     install_requires=[ 'colorama' ],
     extras_require={  # Optional
         'full': [ 'pyyaml', 'graphviz' ],
-        'dev': [],
+        'dev': [ 'pyyaml', 'graphviz' ],
         'test': ['pytest'],
     },
     project_urls={  # Optional
