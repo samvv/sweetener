@@ -2,13 +2,13 @@
 from typing import Any, TypeVar
 
 from .clazz import hasmethod
-from .common import isprimitive
+from .common import is_primitive
 from .iterator import first, last, is_empty
 
 T = TypeVar('T')
 
 def clone(value: T, deep=False) -> T:
-    if isprimitive(value):
+    if is_primitive(value):
         return value
     elif isinstance(value, list):
         if not deep:
