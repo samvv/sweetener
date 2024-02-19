@@ -85,10 +85,11 @@ jobs:
         path: dist/
     - name: Publish distribution to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
-    - name: Update the 'latest' tag in Git
-      run: |
-        git tag latest
-        git push origin latest --force
+    # FIXME doesn't work because actions/checkout@v4 hasn't run
+    # - name: Update the 'latest' tag in Git
+    #   run: |
+    #     git tag latest
+    #     git push origin latest --force
 
   # publish-to-testpypi:
   #   name: Publish Python distribution to TestPyPI
