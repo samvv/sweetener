@@ -43,11 +43,11 @@ def lift(proc: Callable[..., Any], key: PathLike) -> Callable[..., Any]:
 def swap(a, i, j):
   a[i], a[j] = a[j], a[i]
 
-def ischar(value):
+def is_char(value: Any) -> bool:
     return isinstance(value, str) \
         and len(value) == 1
 
-def isprimitive(value):
+def is_primitive(value: Any) -> bool:
     return value is None \
         or isinstance(value, str) \
         or isinstance(value, bool) \

@@ -12,7 +12,7 @@ except ImportError:
     graphviz = None
 
 from .record import Record, satisfies_type
-from .common import isprimitive
+from .common import is_primitive
 from .clazz import hasmethod
 
 HORIZONTAL = 1
@@ -90,7 +90,7 @@ class Plot(PlotElement):
         return ref
 
     def nest(self, value, key) -> PlotElement:
-        if isprimitive(value):
+        if is_primitive(value):
             return PlotText(str(value), key=key)
         elif isinstance(value, list):
             table = PlotCells(direction=VERTICAL, key=key)
