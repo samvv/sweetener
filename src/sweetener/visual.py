@@ -103,6 +103,17 @@ class Plot(PlotElement):
                     text = row.add_text(i, key=f'{i}-ref')
                     self.add_edge(text, p)
             return table
+        elif isinstance(value, tuple):
+            table = PlotCells(direction=VERTICAL, key=key)
+            row = table.add_cells(direction=HORIZONTAL, key=f'row')
+            for i, child in enumerate(value):
+                p = self.nest(child, key=i)
+                if p.is_embeddable:
+                    row.add_element(p)
+                else:
+                    text = row.add_text(i, key=f'{i}-ref')
+                    self.add_edge(text, p)
+            return table
         elif isinstance(value, dict):
             table = PlotCells(direction=VERTICAL, key=key)
             for i, (k, v) in enumerate(value.items()):
