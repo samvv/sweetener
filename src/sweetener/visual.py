@@ -278,6 +278,12 @@ def visualize(value: Any, name: str | None = None, format: str | None = None, vi
         def escape(text: str) -> str:
             out = ''
             for ch in text:
+                if not ch.isprintable():
+                    out += f'\\x{ord(ch):02x}';
+                    continue
+                if ord(ch) > 0x7F:
+                    out += f'&#{ord(ch)};'
+                    continue
                 if ch in [ '"', '{', '\\'  ]:
                     out += '\\'
                 out += ch
