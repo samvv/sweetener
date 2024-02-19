@@ -275,6 +275,14 @@ def visualize(value: Any, name: str | None = None, format: str | None = None, vi
         nodes = []
         edges = []
 
+        def escape(text: str) -> str:
+            out = ''
+            for ch in text:
+                if ch in [ '"', '{', '\\'  ]:
+                    out += '\\'
+                out += ch
+            return out
+
         def render_cells(cells: PlotCells, curr_direction=HORIZONTAL, is_first=True) -> str:
             out = ''
             if cells.direction != curr_direction:
@@ -285,7 +293,7 @@ def visualize(value: Any, name: str | None = None, format: str | None = None, vi
                     chunks = cast(str, element.id,).split(':')
                     if len(chunks) == 2:
                         out += ' <' + chunks[1] + '> '
-                    out += element.text
+                    out += escape(element.text)
                 elif isinstance(element, PlotCells):
                     out += render_cells(element, cells.direction, is_first)
                 else:
