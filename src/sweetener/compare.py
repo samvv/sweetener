@@ -1,6 +1,6 @@
 
 from .clazz import hasmethod
-from .common import ischar, isprimitive
+from .common import is_char, is_primitive
 
 _type_indices = [bool, int, float, str, tuple, list]
 
@@ -13,7 +13,7 @@ def lt(v1, v2):
         return v1 < v2
     # NOTE We explicitly distinguish between a str and a char because string
     # comparison in python sometimes yields incorrect results.
-    if ischar(v1) and ischar(v2):
+    if is_char(v1) and is_char(v2):
         return v1 < v2
     elif (isinstance(v1, tuple) and isinstance(v2, tuple)) \
             or (isinstance(v1, list) and isinstance(v2, list)) \
@@ -33,7 +33,7 @@ def eq(a, b):
             return a.equal(b)
         except TypeError:
             return b.equal(a)
-    elif isprimitive(a) and isprimitive(b):
+    elif is_primitive(a) and is_primitive(b):
         return a == b
     elif isinstance(a, list) and isinstance(b, list):
         if len(a) != len(b):
