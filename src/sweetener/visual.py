@@ -290,7 +290,8 @@ def visualize(value: Any, name: str | None = None, format: str | None = None, vi
             for i, element in enumerate(cells.children):
                 if i > 0: out += ' | '
                 if isinstance(element, PlotText):
-                    chunks = cast(str, element.id,).split(':')
+                    assert(element.id is not None)
+                    chunks = element.id.split(':')
                     if len(chunks) == 2:
                         out += ' <' + chunks[1] + '> '
                     out += escape(element.text)
