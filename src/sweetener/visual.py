@@ -344,6 +344,5 @@ def visualize(value: Any, name: str | None = None, format: str | None = None, vi
             s.attr(style='filled', color='lightgrey')
             render_graph(reference, i)
 
-    print(dot)
     dot.render(view=view, format=format)
 
