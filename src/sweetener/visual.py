@@ -293,18 +293,21 @@ def visualize(value: Any, name: str | None = None, format: str | None = None, vi
             out = ''
             if cells.direction != curr_direction:
                 out += '{'
-            for i, element in enumerate(cells.children):
-                if i > 0: out += ' | '
-                if isinstance(element, PlotText):
-                    assert(element.id is not None)
-                    chunks = element.id.split(':')
-                    if len(chunks) == 2:
-                        out += ' <' + chunks[1] + '> '
-                    out += escape(element.text)
-                elif isinstance(element, PlotCells):
-                    out += render_cells(element, cells.direction, is_first)
-                else:
-                    raise NotImplementedError(f"did not know how to render {element}")
+            if cells.children:
+                out += ' '
+                for i, element in enumerate(cells.children):
+                    if i > 0: out += ' | '
+                    if isinstance(element, PlotText):
+                        assert(element.id is not None)
+                        chunks = element.id.split(':')
+                        assert(len(chunks) == 2)
+                        out += '<' + chunks[1] + '> '
+                        out += escape(element.text)
+                    elif isinstance(element, PlotCells):
+                        out += render_cells(element, cells.direction, is_first)
+                    else:
+                        raise NotImplementedError(f"did not know how to render {element}")
+                out += ' '
             if cells.direction != curr_direction:
                 out += '}'
             return out
@@ -341,5 +344,6 @@ def visualize(value: Any, name: str | None = None, format: str | None = None, vi
             s.attr(style='filled', color='lightgrey')
             render_graph(reference, i)
 
+    print(dot)
     dot.render(view=view, format=format)
 
