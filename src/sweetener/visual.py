@@ -1,7 +1,7 @@
 
 import inspect
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 from sweetener.logging import warn
 from sweetener.util import nonnull
