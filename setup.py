@@ -32,6 +32,9 @@ setup(
     packages=find_packages(where='src'),
     python_requires='>=3.12, <4',
     install_requires=[ 'colorama' ],
+    package_data = {
+        'sweetener': ['py.typed'],
+    },
     extras_require={  # Optional
         'full': [ 'pyyaml', 'graphviz' ],
         'dev': [ ],
