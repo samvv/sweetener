@@ -284,7 +284,7 @@ def visualize(value: Any, name: str | None = None, format: str | None = None, vi
                 if ord(ch) > 0x7F:
                     out += f'&#{ord(ch)};'
                     continue
-                if ch in [ '"', '{', '\\'  ]:
+                if ch in [ '"', '{', '\\', '>', '<' ]:
                     out += '\\'
                 out += ch
             return out
