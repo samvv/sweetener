@@ -1,22 +1,24 @@
 
-from typing import Any
+from typing import Any, Iterator, TypeGuard, TypeVar
 
 from .clazz import hasmethod
 
-def is_empty(iterator):
+T = TypeVar('T', covariant=True)
+
+def is_empty(iterator: Iterator[Any]):
     try:
         next(iterator)
         return True
     except StopIteration:
         return False
 
-def first(iterator):
+def first(iterator: Iterator[T]) -> T | None:
     try:
         return next(iterator)
     except StopIteration:
         pass
 
-def last(iterator):
+def last(iterator: Iterator[T]) -> T | None:
     try:
         last_element = next(iterator)
     except StopIteration:
@@ -25,6 +27,6 @@ def last(iterator):
         last_element = element
     return last_element
 
-def is_iterator(value: Any) -> bool:
+def is_iterator(value: Any) -> TypeGuard[Iterator[Any]]:
     return hasmethod(value, '__next__')
 
