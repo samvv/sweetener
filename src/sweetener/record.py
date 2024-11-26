@@ -4,7 +4,7 @@ import typing
 from functools import cmp_to_key
 import collections.abc
 import inspect
-from typing import Any, Callable, Generator, Protocol, Self, Type, TypeVar, cast
+from typing import Any, Callable, Generator, Protocol, Self, Type, TypeAliasType, TypeVar, cast
 
 from .logging import warn
 from .util import get_class_name, get_type_index, lift_key, reflect, make_comparator
@@ -82,7 +82,7 @@ def _get_all_union_elements(value: Type):
 
     origin = typing.get_origin(value)
 
-    if origin is typing.Union:
+    if origin is typing.Union or origin is types.UnionType:
         args = typing.get_args(value)
         for arg in args:
             yield from _get_all_union_elements(arg)
@@ -176,18 +176,31 @@ def get_defaults(cls: Type) -> dict[str, Any]:
                 result[k] = v
     return result
 
-type CoerceFn = Callable[[Any, Type], Type]
+type CoerceFn = Callable[[Any, type], Any]
 
 _class_coercions = list[tuple[Type, CoerceFn]]()
 
-def add_coercion(cls: Type, proc: CoerceFn) -> None:
+def add_coercion(cls: type, proc: CoerceFn) -> None:
     assert(cls not in _class_coercions)
     _class_coercions.append((cls, proc))
+
+def _coerce_list(value: Any, ty: type) -> Any:
+    el_ty = typing.get_args(ty)
+    return list(coerce(element, el_ty[0]) for element in value)
+
+add_coercion(list, _coerce_list)
+
+def _coerce_tuple(value: Any, ty: type) -> Any:
+    if value is None: return []
+    el_tys = typing.get_args(ty)
+    return tuple(coerce(element, el_ty) for element, el_ty in zip(value, el_tys))
+
+add_coercion(tuple, _coerce_tuple)
 
 class CoercionError(RuntimeError):
     pass
 
-def get_all_superclasses(cls: Type) -> Generator[Type, None, None]:
+def get_all_superclasses(cls: type) -> Generator[Type, None, None]:
     yield cls
     for parent_cls in cls.__bases__:
         yield from get_all_superclasses(parent_cls)
@@ -198,73 +211,74 @@ def get_common_superclass(classes: list[Type]) -> Type | None:
         if all(issubclass(cls, parent_cls) for cls in classes):
             return parent_cls
 
-def coerce(value: Any, ty: Type) -> Any:
-
-    if ty is type(None):
-        if value is not None:
-            raise CoercionError(f'could not coerce {value} to NoneType because the only allowed value is None')
-        return None
-
+def _get_all_types(ty: Any) -> Generator[Any, None, None]:
+    if isinstance(ty, TypeAliasType):
+        yield from _get_all_types(ty.__value__)
+        return
     origin = typing.get_origin(ty)
+    if origin is typing.Union or origin is types.UnionType:
+        args = typing.get_args(ty)
+        for arg in args:
+            yield from _get_all_types(arg)
+        return
+    yield ty
 
-    if origin is None:
+def coerce(value: Any, ty: Any) -> Any:
 
-        if isinstance(value, ty):
-            return value
+    if not typing.get_origin(ty) and isinstance(value, ty):
+        return value
 
-        attempts = []
+    has_none = False
+    has_non_cls = False
+    classes = []
 
-        for cls, proc in _class_coercions:
-            if ty is cls or issubclass(ty, cls):
-                attempts.append((cls, proc))
+    for ty in _get_all_types(ty):
+        origin = typing.get_origin(ty)
+        if ty is type(None):
+            has_none = True
+        elif origin is None:
+            classes.append(ty)
+        elif origin is not None:
+            classes.append(origin)
+        else:
+            has_non_cls = True
 
-        attempts.sort(key=lift_key(cmp_to_key(make_comparator(issubclass)), 0))
+    if has_non_cls:
+        raise CoercionError(f'could not coerce {value} to {ty} because {arg} contains unrecognised types') # type: ignore
 
-        for cls, proc in attempts:
-            try:
-                return proc(value, ty)
-            except CoercionError:
-                pass
-
-        raise CoercionError(f'could not coerce {value} to {ty} because no known coercions exist for {ty}')
-
-    if origin is typing.Union or origin == types.UnionType:
-        classes = []
-        has_none = False
-        has_non_cls = False
-        for arg in _get_all_union_elements(ty):
-            if arg is type(None):
-                has_none = True
-                continue
-            origin = typing.get_origin(arg)
-            if origin is not None:
-                has_non_cls = True
-            classes.append(arg)
-        if value is None:
-            if not has_none:
-                raise CoercionError(f'could not coerce None to {ty} because None is not allowed')
-            return None
-        if has_non_cls:
-            raise CoercionError(f'could not coerce {value} to {ty} because {arg} cannot be joined with the other typing.Union elements') # type: ignore
+    if not classes:
+        raise CoercionError(f'could not coerce {value} to {ty} because there are no classes to coerce to')
+    if len(classes) == 1:
+        cls = classes[0]
+    else:
         cls = get_common_superclass(classes)
         if cls is None:
-            raise CoercionError(f'could not coerce {value} to {ty} because {ty} can be multiple unrelated types')
-        return coerce(value, cls)
+            raise CoercionError(f'could not coerce {value} to {ty} because {ty} do not all have any superclasses in common')
 
-    args = typing.get_args(ty)
+    if isinstance(value, cls):
+        return value
 
-    if origin is list:
-        if value is None:
-            return []
-        element_type = args[0]
-        return list(coerce(element, element_type) for element in value)
+    attempts = []
 
-    if origin is tuple:
-        if value is None:
-            return tuple(coerce(None, element_type) for element_type in args)
-        return tuple(coerce(element, element_type) for element, element_type in zip(value, args))
+    for cls_2, proc in _class_coercions:
+        if cls is cls_2 or issubclass(cls, cls_2):
+            attempts.append((cls, proc))
 
-    raise RuntimeError(f'cannot coerce {value} into {ty} because {origin} is an unsupported typing')
+    attempts.sort(key=lift_key(cmp_to_key(make_comparator(issubclass)), 0))
+
+    for cls, proc in attempts:
+        try:
+            return proc(value, ty)
+        except CoercionError:
+            pass
+
+    if value is None:
+        if not has_none:
+            raise CoercionError(f'could not coerce None to {ty} because None is not allowed')
+        return None
+
+    raise CoercionError(f'could not coerce {value} to {ty} because no known coercions exist for {ty}')
+
 
 class RecordFields:
 
