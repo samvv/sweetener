@@ -345,7 +345,6 @@ def visualize(value: Any, name: str | None = None, format: str | None = None, vi
         else:
             raise NotImplementedError(f"did not know how to render {element}")
 
-    print(plotter.children)
     for child in plotter.children:
         emit_toplevel(child)
 
