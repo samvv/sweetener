@@ -84,7 +84,7 @@ def resolve(value: Any, key: Any) -> Any:
         return value[key]
     raise TypeError(f'could not determine how to resolve a value with key {key}')
 
-def erase(value, key):
+def erase(value: Any, key: Any) -> None:
     if isinstance(key, int) \
             or isinstance(key, str):
         del value[key]
