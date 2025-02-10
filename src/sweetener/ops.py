@@ -1,6 +1,5 @@
 
 from typing import Any, Callable, Iterable, Protocol, Self, Sequence, TypeVar, cast, overload
-from warnings import warn
 
 from sweetener.constants import RESOLVE_METHOD_NAME
 
@@ -11,22 +10,6 @@ _K = TypeVar('_K')
 _V = TypeVar('_V')
 _T_cov = TypeVar('_T_cov', covariant=True)
 _T_contra = TypeVar('_T_contra', contravariant=True)
-
-# def clone(value: _T, deep=False) -> _T:
-#     if is_primitive(value):
-#         return value
-#     elif isinstance(value, list):
-#         if not deep:
-#             return list(value) # type: ignore
-#         return list(clone(el, deep=True) for el in value) # type: ignore
-#     elif isinstance(value, dict):
-#         if not deep:
-#             return dict(value) # type: ignore
-#         return dict((clone(k, deep=True), clone(v, deep=True)) for (k, v) in value.items()) # type: ignore
-#     elif hasmethod(value, 'clone'):
-#         return value.clone(deep=deep) # type: ignore
-#     else:
-#         raise NotImplementedError(f"did not know how to clone {value}")
 
 type ExpandFn = Callable[[Any], Iterable[tuple[Any, Any]]]
 
@@ -230,7 +213,7 @@ def is_last_key(root, key):
             values.append(value)
 
         # if we still can go deeper we should try that first
-        if not is_empty(expand(value)):
+        if expand(value):
             return False
 
         # go up until we find a key that we can increment

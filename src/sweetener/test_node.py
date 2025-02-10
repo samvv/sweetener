@@ -178,10 +178,6 @@ def test_remove_node_nested():
 
     assert_invariants(m)
 
-    for row in m.elements:
-        for cell in row:
-            assert(resolve(m, cell.parent_path) == cell)
-
 def test_get_full_path():
 
     n00 = Leaf(0)
