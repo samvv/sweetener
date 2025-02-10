@@ -1,38 +1,32 @@
 
-from .clazz import hasmethod
-from .common import is_char, is_primitive
+from typing import Protocol, Self, TypeVar
 
-_type_indices = [bool, int, float, str, tuple, list]
+from .constants import EQUAL_METHOD_NAME
+from .util import get_type_index, hasmethod, is_primitive
 
-def lt(v1, v2):
-    if isinstance(v1, bool) and isinstance(v2, bool): \
-        return v1 < v2
-    if isinstance(v1, int) and isinstance(v2, int): \
-        return v1 < v2
-    if isinstance(v1, float) and isinstance(v2, float): \
-        return v1 < v2
-    # NOTE We explicitly distinguish between a str and a char because string
-    # comparison in python sometimes yields incorrect results.
-    if is_char(v1) and is_char(v2):
-        return v1 < v2
-    elif (isinstance(v1, tuple) and isinstance(v2, tuple)) \
-            or (isinstance(v1, list) and isinstance(v2, list)) \
-            or (isinstance(v1, str) and isinstance(v2, str)):
-        if (len(v1) != len(v2)):
-            return len(v1) < len(v2)
-        for el1, el2 in zip(v1, v2):
-            if lt(el1, el2):
-                return True
-        return False
-    else:
-        return _type_indices.index(v1.__class__) < _type_indices.index(v2.__class__)
+class _Comparable(Protocol):
+    def __lt__(self, other: Self) -> bool: ...
 
-def eq(a, b):
-    if hasmethod(a, 'equal') and hasmethod(b, 'equal'):
+_T = TypeVar('_T')
+
+def lt(v1: _Comparable, v2: _Comparable) -> bool:
+    i1 = get_type_index(v1.__class__)
+    i2 = get_type_index(v2.__class__)
+    if i1 < i2:
+        return True
+    if i1 == i2:
+        # Delegate to Python's built-in comparison method
+        return v1 < v2
+    return False
+
+def eq(a: _T, b: _T) -> bool:
+    if hasmethod(a, EQUAL_METHOD_NAME) and hasmethod(b, EQUAL_METHOD_NAME):
+        equal_a_b = getattr(a, EQUAL_METHOD_NAME)
+        equal_b_a = getattr(b, EQUAL_METHOD_NAME)
         try:
-            return a.equal(b)
+            return equal_a_b(b)
         except TypeError:
-            return b.equal(a)
+            return equal_b_a(a)
     elif is_primitive(a) and is_primitive(b):
         return a == b
     elif isinstance(a, list) and isinstance(b, list):
@@ -59,18 +53,18 @@ def eq(a, b):
     else:
         return False
 
-def le(v1, v2):
+def le(v1: _Comparable, v2: _Comparable) -> bool:
     return lt(v1, v2) or eq(v1, v2)
 
-def ge(v1, v2):
+def ge(v1: _Comparable, v2: _Comparable) -> bool:
     return not lt(v1, v2)
 
-def gt(v1, v2):
+def gt(v1: _Comparable, v2: _Comparable) -> bool:
     return not le(v1, v2)
 
-def gte(v1, v2):
+def gte(v1: _Comparable, v2: _Comparable) -> bool:
     return gt(v1, v2) or eq(v1, v2)
 
-def lte(v1, v2):
+def lte(v1: _Comparable, v2: _Comparable) -> bool:
     return lt(v1, v2) or eq(v1, v2)
 

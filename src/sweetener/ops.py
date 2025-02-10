@@ -1,13 +1,18 @@
 
-from typing import Any, TypeVar
+from typing import Any, Callable, Iterable, Protocol, Self, Sequence, TypeVar, overload
+from warnings import warn
 
-from .clazz import hasmethod
-from .common import is_primitive
-from .iterator import first, last, is_empty
+from sweetener.constants import RESOLVE_METHOD_NAME
 
-T = TypeVar('T')
+from .util import hasmethod, is_primitive, first, last, is_empty
 
-def clone(value: T, deep=False) -> T:
+_T = TypeVar('_T')
+_K = TypeVar('_K')
+_V = TypeVar('_V')
+_T_cov = TypeVar('_T_cov', covariant=True)
+_T_contra = TypeVar('_T_contra', contravariant=True)
+
+def clone(value: _T, deep=False) -> _T:
     if is_primitive(value):
         return value
     elif isinstance(value, list):
@@ -23,36 +28,68 @@ def clone(value: T, deep=False) -> T:
     else:
         raise NotImplementedError(f"did not know how to clone {value}")
 
-def expand(value):
+@overload
+def expand(value: list[_T]) -> Iterable[tuple[int, _T]]: ...
+
+@overload
+def expand(value: tuple[_T, ...]) -> Iterable[tuple[int, _T]]: ...
+
+_K_cov = TypeVar('_K_cov', covariant=True)
+_V_cov = TypeVar('_V_cov', covariant=True)
+
+class Expandable(Protocol[_K_cov, _V_cov]):
+    def _expand(self) -> Iterable[tuple[_K_cov, _V_cov]]: ...
+
+@overload
+def expand(value: Expandable[_K_cov, _V_cov]) -> Iterable[tuple[_K_cov, _V_cov]]: ...
+
+def expand(value: Any) -> Iterable[tuple[Any, Any]]:
     if isinstance(value, list) or isinstance(value, tuple):
         for i in range(0, len(value)):
             yield i, value[i]
     elif isinstance(value, dict):
         yield from value.items()
-    elif hasmethod(value, 'expand'):
-        yield from value.expand()
+    elif hasmethod(value, '_expand'):
+        yield from value._expand()
     else:
         pass
 
-def resolve(value, key):
-    if hasmethod(key, 'resolve'):
-        return key.resolve(value)
+@overload
+def resolve(value: Sequence[_T], key: int) -> _T: ...
+
+@overload
+def resolve(value: dict[_K, _V], key: _K) -> _V: ...
+
+class Key(Protocol[_T_contra, _T_cov]):
+    def _increment(self) -> Self: ...
+    def _decrement(self) -> Self: ...
+    def _resolve(self, value: _T_contra) -> _T_cov: ...
+
+@overload
+def resolve(value: _T_contra, key: Key[_T_contra, _T_cov]) -> _T_cov: ...
+
+@overload
+def resolve(value: Any, key: Sequence[Any]) -> Any: ...
+
+def resolve(value: Any, key: Any) -> Any:
+    if hasmethod(key, RESOLVE_METHOD_NAME):
+        method = getattr(key, RESOLVE_METHOD_NAME)
+        return method(value)
     if isinstance(key, list):
         result = value
         for element in key:
             result = resolve(result, element)
         return result
-    elif isinstance(key, int) or isinstance(key, str):
+    if isinstance(key, int) or isinstance(key, str):
         return value[key]
-    else:
-        raise TypeError(f'could not determine how to resolve key {key}')
+    raise TypeError(f'could not determine how to resolve a value with key {key}')
 
 def erase(value, key):
     if isinstance(key, int) \
             or isinstance(key, str):
         del value[key]
     elif isinstance(key, list):
-        child = resolve(value, key[-1])
+        child = resolve(value, key[:-1])
         erase(child, key[-1])
     else:
         raise RuntimeError(f'did not know how to erase from key {key}')
@@ -206,4 +243,13 @@ def is_last_key(root, key):
 
     else:
         raise TypeError(f'key {key}')
+
+def lift_key(proc: Callable[..., Any], path: Any) -> Callable[..., Any]:
+    if isinstance(path, str):
+        path = path.split('.')
+    if not isinstance(path, list):
+        path = [ path ]
+    def lifted(*args):
+        return proc(*(resolve(arg, path) for arg in args))
+    return lifted
 

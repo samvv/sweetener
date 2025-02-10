@@ -4,16 +4,17 @@ import typing
 from functools import cmp_to_key
 import collections.abc
 import inspect
-from typing import Any, Callable, Generator, Protocol, Self, Type, TypeAliasType, TypeVar, cast
+from typing import Any, Callable, Generator, Iterable, Protocol, Self, TypeAliasType, TypeVar, cast
 
 from .logging import warn
-from .util import get_class_name, get_type_index, lift_key, reflect, make_comparator
+from .ops import lift_key
+from .util import get_class_name, get_type_index, reflect, make_comparator
 
 T = TypeVar('T')
 
 _primitive_types = [ type(None), bool, int, float, str ]
 
-def satisfies_type(value: Any, ty: Type) -> bool:
+def satisfies_type(value: Any, ty: Any) -> bool:
 
     if ty is None:
         return value is None
@@ -78,7 +79,7 @@ def satisfies_type(value: Any, ty: Type) -> bool:
     warn(f'no type-checking logic defined for {origin}')
     return isinstance(value, origin)
 
-def _get_all_union_elements(value: Type):
+def _get_all_union_elements(value: Any):
 
     origin = typing.get_origin(value)
 
@@ -147,7 +148,7 @@ def _lt_helper(a, b):
         return _lt_helper_sequence(a, b)
     return a < b
 
-def has_annotation(cls: Type, expected: str) -> bool:
+def has_annotation(cls: type, expected: str) -> bool:
     prev_annotations = None
     for cls in cls.__mro__:
         if hasattr(cls, '__annotations__') and cls.__annotations__ != prev_annotations:
@@ -157,18 +158,18 @@ def has_annotation(cls: Type, expected: str) -> bool:
                 prev_annotations = cls.__annotations__
     return False
 
-def get_all_subclasses(cls: Type) -> Generator[Type, None, None]:
+def get_all_subclasses(cls: type) -> Generator[type, None, None]:
     yield cls
     for subcls in cls.__subclasses__():
         yield from get_all_subclasses(subcls)
 
-def find_subclass_named(name: str, cls: Type) -> Type:
+def find_subclass_named(name: str, cls: type) -> type:
     for subcls in get_all_subclasses(cls):
         if subcls.__name__ == name:
             return subcls
     raise NameError(f"class named '{name}' not found")
 
-def get_defaults(cls: Type) -> dict[str, Any]:
+def get_defaults(cls: type) -> dict[str, Any]:
     result = dict()
     for pcls in inspect.getmro(cls):
         for k, v in pcls.__dict__.items():
@@ -178,7 +179,7 @@ def get_defaults(cls: Type) -> dict[str, Any]:
 
 type CoerceFn = Callable[[Any, type], Any]
 
-_class_coercions = list[tuple[Type, CoerceFn]]()
+_class_coercions = list[tuple[type, CoerceFn]]()
 
 def add_coercion(cls: type, proc: CoerceFn) -> None:
     assert(cls not in _class_coercions)
@@ -200,12 +201,12 @@ add_coercion(tuple, _coerce_tuple)
 class CoercionError(RuntimeError):
     pass
 
-def get_all_superclasses(cls: type) -> Generator[Type, None, None]:
+def get_all_superclasses(cls: type) -> Generator[type, None, None]:
     yield cls
     for parent_cls in cls.__bases__:
         yield from get_all_superclasses(parent_cls)
 
-def get_common_superclass(classes: list[Type]) -> Type | None:
+def get_common_superclass(classes: list[type]) -> type | None:
     cls = classes[0]
     for parent_cls in get_all_superclasses(cls):
         if all(issubclass(cls, parent_cls) for cls in classes):
@@ -285,31 +286,31 @@ class RecordFields:
     def __init__(self, record) -> None:
         self.record = record
 
-    def __contains__(self, key: str):
+    def __contains__(self, key: str) -> bool:
         hints = typing.get_type_hints(type(self.record))
         return key in hints
 
-    def __getitem__(self, key: str) -> typing.Any:
+    def __getitem__(self, key: str) -> Any:
         hints = typing.get_type_hints(type(self.record))
         if key not in hints:
             raise KeyError(f"key '{key}' is not found in the fields of {self.record}")
         return getattr(self.record, key)
 
-    def __setitem__(self, key: str, new_value: typing.Any):
+    def __setitem__(self, key: str, new_value: typing.Any) -> None:
         hints = typing.get_type_hints(type(self.record))
         if key not in hints:
             raise KeyError(f"key '{key}' is not found in the fields of {self.record}")
         setattr(self.record, key, new_value)
 
-    def keys(self):
+    def keys(self) -> Iterable[str]:
         hints = typing.get_type_hints(type(self.record))
         return hints.keys()
 
-    def values(self):
+    def values(self) -> Iterable[Any]:
         for key in typing.get_type_hints(type(self.record)):
             yield getattr(self.record, key)
 
-    def items(self):
+    def items(self) -> Iterable[tuple[str, Any]]:
         for name in typing.get_type_hints(type(self.record)):
             yield name, getattr(self.record, name)
 
@@ -493,7 +494,7 @@ class Record:
         return typing.get_type_hints(self).keys()
 
     @property
-    def fields(self):
+    def fields(self) -> RecordFields:
         return RecordFields(self)
 
     def items(self):
@@ -502,13 +503,16 @@ class Record:
     def keys(self):
         return self.fields.keys()
 
-    def equal(self, other) -> bool:
+    def _equal(self, other) -> bool:
         if self.__class__ != other.__class__:
             return False
         for k1, v1 in self.fields.items():
             if other[k1] != v1:
                 return False
         return True
+
+    def _expand(self) -> Iterable[tuple[str, Any]]:
+        return self.fields.items()
 
     def __lt__(self, other) -> bool:
         if not isinstance(other, Record):
@@ -559,7 +563,7 @@ class Record:
         for k, v in self.fields.items():
             encoder.write_field(k, v)
 
-def _coerce_to_record(value: Any, ty: Type[T]) -> T:
+def _coerce_to_record(value: Any, ty: type[T]) -> T:
     hints = typing.get_type_hints(ty)
     defaults = get_defaults(ty)
     required = 0

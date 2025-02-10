@@ -1,41 +1,48 @@
 
 import inspect
-from typing import Callable, Iterable, Optional, Any, Sequence, Type, TypeVar, cast
+from typing import Callable, Iterable, Iterator, Optional, Any, Protocol, Sequence, TypeGuard, TypeIs, TypeVar
 from functools import reduce, wraps
 
 _next_type_id = 0
 _type_index = dict()
 
-_T = TypeVar('_T')
-_A = TypeVar('_A')
-_B = TypeVar('_B')
-
-def register_type(ty: Type) -> None:
+def register_type(ty: type) -> None:
     global _next_type_id
     index = _next_type_id
     _next_type_id += 1
     assert(ty not in _type_index)
     _type_index[ty] = index
 
-for ty in [ type(None), bool, int, float, str, tuple, list, dict ]:
+for ty in [ type(None), bool, int, float, complex, str, tuple, list, dict ]:
     register_type(ty)
 
-def reflect(target):
+_Class = TypeVar('_Class', bound=type)
+
+def reflect(target: _Class) -> _Class:
+    """
+    A decorator to register this class for reflection.
+
+    Through reflection data can e.g. be deserialized into the class.
+    """
     register_type(target)
     return target
 
-def get_type_index(ty):
+def get_type_index(ty: type) -> int:
     index = _type_index.get(ty)
     if index is None:
         raise RuntimeError(f"could not determine type index of {ty}: type was not registered during this execution")
     return index
+
+_T = TypeVar('_T')
+_A = TypeVar('_A')
+_B = TypeVar('_B')
 
 def flatten(l: Iterable[list[_T]]) -> Sequence[_T]:
     return sum(l, [])
 
 foldl = reduce
 
-def get_class_name(value):
+def get_class_name(value: Any) -> str:
     return value.__name__ \
             if type(value) is type \
             else value.__class__.__name__
@@ -51,7 +58,10 @@ def foldr(func: Callable[[_T, _A], _A], xs: Sequence[_T], acc: _A) -> _A:
          acc = func(x, acc)
     return acc
 
-def pretty_enum(elements, default='nothing'):
+class _ToStr(Protocol):
+    def __str__(self) -> str: ...
+
+def pretty_enum(elements: Iterable[_ToStr], default='nothing') -> str:
     elements = iter(elements)
     try:
         element = next(elements)
@@ -67,9 +77,9 @@ def pretty_enum(elements, default='nothing'):
             element = next(elements)
         except StopIteration:
             break
-        result += ', ' + prev_element
+        result += ', ' + str(prev_element)
         prev_element = element
-    return result + ' or ' + prev_element
+    return result + ' or ' + str(prev_element)
 
 type CompareFn[_T] = Callable[[_T, _T], bool]
 type WeightFn[_T] = Callable[[_T, _T], int]
@@ -83,102 +93,55 @@ def make_comparator(less_than: CompareFn[_T]) -> WeightFn:
         return 0
     return compare
 
-_type_list = [ type(None), bool, int, float, str, tuple, list, dict ]
-
-def lt(v1, v2):
-    match (v1, v2):
-        case (bool(), bool()):
-            return v1 < v2
-        case (int(), int()):
-            return v1 < v2
-        case (float(), float()):
-            return v1 < v2
-        case (str(), str()):
-            return v1 < v2
-        case (tuple(), tuple()) | (list(), list()):
-            if len(v1) != len(v2):
-                return len(v1) < len(v2)
-            for el1, el2 in zip(v1, v2):
-                if lt(el1, el2):
-                    return True
-            return False
-        case _:
-            return _type_list.index(v1.__class__) < _type_list.index(v2.__class__)
-
 def has_method(value, name):
     return hasattr(value, name) \
         and inspect.ismethod(getattr(value, name))
 
-def is_primitive(value):
+type Primitive = bool | int | float | str | None
+
+def is_primitive(value: Any) -> TypeIs[Primitive]:
+    # TODO Add complex and other types
     return value is None \
         or isinstance(value, str) \
         or isinstance(value, bool) \
         or isinstance(value, float) \
         or isinstance(value, int)
 
-
-def eq(a, b):
-    if has_method(a, 'equal') and has_method(b, 'equal'):
-        try:
-            return a.equal(b)
-        except TypeError:
-            return b.equal(a)
-    elif is_primitive(a) and is_primitive(b):
-        return a == b
-    elif isinstance(a, list) and isinstance(b, list):
-        if len(a) != len(b):
-            return False
-        for el1, el2 in zip(a, b):
-            if not eq(el1, el2):
-                return False
-        return True
-    elif isinstance(a, tuple) and isinstance(b, tuple):
-        if len(a) != len(b):
-            return False
-        for el1, el2 in zip(a, b):
-            if not eq(el1, el2):
-                return False
-        return True
-    elif isinstance(a, dict) and isinstance(b, dict):
-        if len(a) != len(b):
-            return False
-        for (k_1, v_1), (k_2, v_2) in zip(a.items(), b.items()):
-            if not eq(k_1, k_2) or not eq(v_1, v_2):
-                return False
-        return True
-    else:
-        return False
-
-def le(v1, v2):
-    return lt(v1, v2) or eq(v1, v2)
-
-def ge(v1, v2):
-    return not lt(v1, v2)
-
-def gt(v1, v2):
-    return not le(v1, v2)
-
-def gte(v1, v2):
-    return gt(v1, v2) or eq(v1, v2)
-
-def lte(v1, v2):
-    return lt(v1, v2) or eq(v1, v2)
-
-def resolve(value, path: list[Any]):
-    for key in path:
-        value = value[key]
-    return value
-
-def lift_key(proc, path):
-    if isinstance(path, str):
-        path = path.split('.')
-    if not isinstance(path, list):
-        path = [ path ]
-    def lifted(*args):
-        return proc(*(resolve(arg, path) for arg in args))
-    return lifted
+def is_char(value: Any) -> TypeGuard[str]:
+    return isinstance(value, str) \
+        and len(value) == 1
 
 def nonnull(value: Optional[_T]) -> _T:
     assert(value is not None)
     return value
+
+def hasmethod(value: Any, name: str) -> bool:
+    return hasattr(value, name) \
+        and callable(getattr(value, name))
+
+def is_empty(iterator: Iterator[Any]) -> bool:
+    try:
+        next(iterator)
+        return True
+    except StopIteration:
+        return False
+
+def first(iterator: Iterator[_T]) -> _T | None:
+    try:
+        return next(iterator)
+    except StopIteration:
+        pass
+
+def last(iterator: Iterator[_T]) -> _T | None:
+    try:
+        last_element = next(iterator)
+    except StopIteration:
+        return
+    for element in iterator:
+        last_element = element
+    return last_element
+
+def is_iterator(value: Any) -> TypeGuard[Iterator[Any]]:
+    return hasmethod(value, '__next__')
+
 

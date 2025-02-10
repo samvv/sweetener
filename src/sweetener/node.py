@@ -1,13 +1,15 @@
 
 from collections import deque
-from typing import Any, Generator, Literal, cast
+from typing import Any, Generator, Literal
 
-from .iterator import first, last
+from .util import first, last
 from .record import Record
 from .ops import expand, increment_key, decrement_key, resolve, erase
 
-type Path = list[str | int]
+type Key = str | int
+type Path = list[Key]
 
+# FIXME Not a good indication of being unassigned
 type Unassigned = Literal[False]
 
 def breadthfirst(root, expand):
@@ -27,12 +29,19 @@ def preorder(root, expand=expand):
             stack.append(value)
 
 def preorder_with_paths(root, expand=expand):
-    stack = [ ([], root) ]
+    stack = [ (None, root, 0) ]
     while stack:
-        path, node = stack.pop()
+        n = len(stack)
+        path = []
+        while n > 0:
+            n -= 1
+            key, _, i = stack[n]
+            path.append(key)
+            n -= i
+        _, node, _ = stack.pop()
         yield path, node
-        for key, value in expand(node):
-            stack.append((path + [key], value))
+        for k, (key, value) in enumerate(expand(node)):
+            stack.append((key, value, k))
 
 def postorder(root, expand):
     stack_1 = [root]
@@ -192,6 +201,7 @@ class BaseNode(Record):
             for child in preorder(field_value, expand=expand_no_basenode):
                 if isinstance(child, BaseNode):
                     yield child
+
 
 def expand_no_basenode(value):
     if not isinstance(value, BaseNode):

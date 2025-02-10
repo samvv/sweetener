@@ -1,5 +1,5 @@
 
-from typing import Any, Callable
+from typing import Any, Callable, TypeGuard
 
 type PathElement = str | int
 
@@ -42,15 +42,4 @@ def lift(proc: Callable[..., Any], key: PathLike) -> Callable[..., Any]:
 
 def swap(a, i, j):
   a[i], a[j] = a[j], a[i]
-
-def is_char(value: Any) -> bool:
-    return isinstance(value, str) \
-        and len(value) == 1
-
-def is_primitive(value: Any) -> bool:
-    return value is None \
-        or isinstance(value, str) \
-        or isinstance(value, bool) \
-        or isinstance(value, float) \
-        or isinstance(value, int)
 

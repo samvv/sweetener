@@ -1,5 +1,9 @@
 
+from inspect import walktree
 from typing import List
+
+from sweetener.visual import visualize
+from sweetener.util import nonnull
 
 from .node import *
 
@@ -136,6 +140,20 @@ def test_remove_node():
     assert(root.children[1] == n1)
     assert(root.children[2] == n3)
 
+def assert_invariants(node: BaseNode) -> None:
+    def visit(value: Any, path: Any, parent: Any) -> None:
+        if isinstance(value, BaseNode):
+            if parent is not None and path is not None:
+                assert(value.parent is parent)
+                assert(value.parent_path == path)
+                assert(resolve(nonnull(value.parent), nonnull(value.parent_path)) is value)
+            path = []
+            parent = value
+        for key, child in expand(value):
+            visit(child, [*path, key], parent)
+    visit(node, None, None)
+
+
 def test_remove_node_nested():
 
     n00 = Leaf('00')
@@ -150,6 +168,8 @@ def test_remove_node_nested():
         [ n10, n11, n12 ],
     ])
 
+    visualize(m)
+
     set_parent_nodes(m)
 
     n01.remove()
@@ -159,6 +179,8 @@ def test_remove_node_nested():
     assert(m.elements[1][0] == n10)
     assert(m.elements[1][1] == n11)
     assert(m.elements[1][2] == n12)
+
+    assert_invariants(m)
 
     for row in m.elements:
         for cell in row:
