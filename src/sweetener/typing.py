@@ -1,5 +1,5 @@
 
-from functools import _lru_cache_wrapper, cmp_to_key
+from functools import cmp_to_key
 import types
 import typing
 from typing import Any, Callable, Generator, TypeAliasType, TypeVar, cast
@@ -18,18 +18,38 @@ def add_coercion(cls: type, proc: CoerceFn) -> None:
     assert(cls not in _class_coercions)
     _class_coercions.append((cls, proc))
 
-def _coerce_list(value, ty) -> list:
+_Type = TypeVar('_Type', bound=type)
+
+def coercion(cls: type):
+    def decorator(func):
+        add_coercion(cls, func)
+        return func
+    return decorator
+
+@coercion(list)
+def _coerce_to_list(value, ty) -> list:
     if value is None: return []
     args = typing.get_args(ty)
     return list(coerce(element, args[0]) for element in value)
 
-add_coercion(list, _coerce_list)
-
-def _coerce_tuple(value, ty) -> tuple:
+@coercion(tuple)
+def _coerce_to_tuple(value, ty) -> tuple:
     el_tys = typing.get_args(ty)
     return tuple(coerce(element, el_ty) for element, el_ty in zip(value, el_tys))
 
-add_coercion(tuple, _coerce_tuple)
+@coercion(dict)
+def _coerce_to_dict(value, ty) -> dict:
+    args = typing.get_args(ty)
+    out = {}
+    for k, v in value.items():
+        k_2 = coerce(k, args[0])
+        v_2 = coerce(v, args[1])
+        out[k_2] = v_2
+    return out
+
+@coercion(float)
+def _coerce_to_float(value, ty) -> float:
+    return float(value)
 
 class CoercionError(RuntimeError):
     pass

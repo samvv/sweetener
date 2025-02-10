@@ -1,8 +1,7 @@
 
 import pytest
 
-from sweetener.logging import warn
-from sweetener.typing import CoerceFn, CoercionError, coerce
+from sweetener.typing import CoercionError, coerce
 
 def test_coerce_union_str_int_to_int():
     foo: str | int = 1
@@ -65,3 +64,16 @@ def test_coerce_fail_list_int_to_list_str():
 def test_coerce_fail_list_str_to_list_int():
     with pytest.raises(CoercionError):
         coerce([ 'one', 'two', 'three' ], list[int])
+
+def test_coerce_dict_keys():
+    res = coerce({ 3: 'Hello', 4.4: 'Bla' }, dict[float, str])
+    keys = list(res.keys())
+    assert(isinstance(keys[0], float))
+    assert(isinstance(keys[1], float))
+
+def test_coerce_dict_values():
+    res = coerce({ 'one': 1, 'two': 2.3 }, dict[str, float])
+    values = list(res.values())
+    assert(isinstance(values[0], float))
+    assert(isinstance(values[1], float))
+
