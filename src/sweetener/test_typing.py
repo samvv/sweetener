@@ -77,3 +77,13 @@ def test_coerce_dict_values():
     assert(isinstance(values[0], float))
     assert(isinstance(values[1], float))
 
+def test_coerce_nested():
+    assert(coerce({
+        'one': [ { 'x': 1, 'y': 2 } ],
+        'two': [ { 'x': 3, 'y': 4 } ],
+        'three': [ { 'x': 5, 'y': 6 } ],
+    }, dict[str, list[dict[str, float]]]) == {
+        'one': [ { 'x': 1.0, 'y': 2.0 } ],
+        'two': [ { 'x': 3.0, 'y': 4.0 } ],
+        'three': [ { 'x': 5.0, 'y': 6.0 } ],
+    })
