@@ -1,7 +1,6 @@
 
 from typing import List
 
-from sweetener.visual import visualize
 from sweetener.util import nonnull
 
 from .node import *
@@ -166,8 +165,6 @@ def test_remove_node_nested():
         [ n00, n01, n02 ],
         [ n10, n11, n12 ],
     ])
-
-    visualize(m)
 
     set_parent_nodes(m)
 
