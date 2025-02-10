@@ -1,5 +1,4 @@
 
-from inspect import walktree
 from typing import List
 
 from sweetener.visual import visualize
