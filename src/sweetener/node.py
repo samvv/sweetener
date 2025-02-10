@@ -116,43 +116,40 @@ class BaseNode(Record):
 
     def remove(self) -> None:
 
-        if self.parent is not None:
+        if self.parent is None:
+            # Assuming this structure is the root, in which case we can't remove it
+            return
 
-            # If parent is set `parent_path` MUST also be set
-            assert(self.parent_path is not None)
+        # If parent is set `parent_path` MUST also be set
+        assert(self.parent_path is not None)
 
-            def update_paths(value: Any, path: Path, k: int) -> None:
-                match value:
-                    case BaseNode():
-                        if value.parent_path is not None:
-                            value.parent_path[k] -= 1 # type: ignore
-                    case dict():
-                        for field_name, field_value in value.items():
-                            new_path = list(path)
-                            new_path.append(field_name)
-                            update_paths(field_value, new_path, k)
-                    case list() | tuple():
-                        for i in range(0, len(value)):
-                            new_path = list(path)
-                            new_path.append(i)
-                            update_paths(value, new_path, k)
+        def update_paths(value: Any, k: int) -> None:
+            match value:
+                case BaseNode():
+                    if value.parent_path is not None:
+                        value.parent_path[k] -= 1 # type: ignore
+                case dict():
+                    for field_value in value.values():
+                        update_paths(field_value, k)
+                case list() | tuple():
+                    for i in range(0, len(value)):
+                        update_paths(value, k)
 
-            # Get the structure that is holding `self`
-            parent = resolve(self.parent, self.parent_path[:-1])
+        # Get the structure that is directly holding `self`
+        parent = resolve(self.parent, self.parent_path[:-1])
 
-            if isinstance(parent, list):
-                key = self.parent_path[-1]
-                assert(isinstance(key, int))
-                key += 1
-                for i in range(key, len(parent)):
-                    element = parent[i]
-                    new_path = list(self.parent_path[:-1])
-                    new_path.append(i)
-                    update_paths(element, new_path, len(self.parent_path)-1)
-
-            # Remove `self` from the parent structure
+        if isinstance(parent, list):
             key = self.parent_path[-1]
-            erase(parent, key)
+            assert(isinstance(key, int))
+            # Take the index after the removed element
+            key += 1
+            for i in range(key, len(parent)):
+                element = parent[i]
+                update_paths(element, len(self.parent_path)-1)
+
+        # Remove `self` from the parent structure
+        key = self.parent_path[-1]
+        erase(parent, key)
 
         # Update the sibling pointers only when they're already pointing to a node
         # If they're pointing to None, no action needs to be taken
