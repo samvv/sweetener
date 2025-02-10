@@ -28,6 +28,8 @@ def clone(value: _T, deep=False) -> _T:
     else:
         raise NotImplementedError(f"did not know how to clone {value}")
 
+type ExpandFn = Callable[[Any], Iterable[tuple[Any, Any]]]
+
 @overload
 def expand(value: list[_T]) -> Iterable[tuple[int, _T]]: ...
 

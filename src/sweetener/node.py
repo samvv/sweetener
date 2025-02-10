@@ -1,10 +1,10 @@
 
 from collections import deque
-from typing import Any, Generator, Literal
+from typing import Any, Generator, Iterable, Literal
 
 from .util import first, last
 from .record import Record
-from .ops import expand, increment_key, decrement_key, resolve, erase
+from .ops import ExpandFn, expand, increment_key, decrement_key, resolve, erase
 
 type Key = str | int
 type Path = list[Key]
@@ -12,7 +12,7 @@ type Path = list[Key]
 # FIXME Not a good indication of being unassigned
 type Unassigned = Literal[False]
 
-def breadthfirst(root, expand):
+def breadthfirst(root: Any, expand: ExpandFn = expand) -> Iterable[Any]:
     queue = deque([ root ])
     while len(queue) > 0:
         node = queue.popleft()
@@ -20,7 +20,7 @@ def breadthfirst(root, expand):
         for node in reversed(list(expand(node))):
             queue.append(node)
 
-def preorder(root, expand=expand):
+def preorder(root: Any, expand=expand) -> Iterable[Any]:
     stack = [ root ]
     while stack:
         node = stack.pop()
@@ -28,7 +28,7 @@ def preorder(root, expand=expand):
         for _key, value in reversed(list(expand(node))):
             stack.append(value)
 
-def preorder_with_paths(root: 'BaseNode', expand=expand):
+def preorder_with_paths(root: Any, expand: ExpandFn = expand) -> Iterable[Any]:
     stack = [ ([], root) ]
     while stack:
         path, node = stack.pop()
@@ -36,7 +36,7 @@ def preorder_with_paths(root: 'BaseNode', expand=expand):
         for (key, value) in expand(node):
             stack.append((path + [ key ], value))
 
-def postorder(root, expand):
+def postorder(root: Any, expand: ExpandFn = expand) -> Iterable[Any]:
     stack_1 = [root]
     stack_2 = []
     while stack_1:
