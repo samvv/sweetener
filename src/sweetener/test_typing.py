@@ -19,13 +19,32 @@ def test_coerce_union_str_int_to_str():
 def test_coerce_none_to_empty_list():
     assert(coerce(None, list) == [])
 
-def test_coerce_empty_list_to_same_empty_list():
-    empty = []
-    assert(coerce(empty, list) is empty)
+def test_coerce_empty_list_to_empty_list():
+    assert(coerce([], list) == [])
 
-def test_coerce_list_to_same_list():
+def test_coerce_list_to_untyped_list_1():
     l = [ 1, 2, 3 ]
-    assert(coerce(l, list) is l)
+    assert(coerce(l, list) == l)
+
+def test_coerce_list_to_untyped_list_2():
+    l = [ 'one', 'two', 'three' ]
+    assert(coerce(l, list) == l)
+
+def test_coerce_list_to_untyped_list_3():
+    l = [ 1, 'two', 3.3 ]
+    assert(coerce(l, list) == l)
+
+def test_coerce_list_to_list_int():
+    l = [ 1, 2, 3 ]
+    assert(coerce(l, list[int]) == l)
+
+def test_coerce_list_to_list_str():
+    l = [ 'one', 'two', 'three' ]
+    assert(coerce(l, list[str]) == l)
+
+def test_coerce_list_to_list_union_int_float_str():
+    l = [ 1, 'two', 3.3 ]
+    assert(coerce(l, list[int | float | str]) == l)
 
 def test_coerce_fail_int_to_str():
     with pytest.raises(CoercionError):
@@ -41,4 +60,8 @@ def test_coerce_fail_list_to_int():
 
 def test_coerce_fail_list_int_to_list_str():
     with pytest.raises(CoercionError):
-        print(coerce([ 1, 2, 3 ], list[str]))
+        coerce([ 1, 2, 3 ], list[str])
+
+def test_coerce_fail_list_str_to_list_int():
+    with pytest.raises(CoercionError):
+        coerce([ 'one', 'two', 'three' ], list[int])

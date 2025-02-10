@@ -4,15 +4,13 @@ from warnings import warn
 
 from sweetener.constants import RESOLVE_METHOD_NAME
 
-from .util import hasmethod, first, last, is_empty
+from .util import hasmethod, first, last, is_empty, primitive_types
 
 _T = TypeVar('_T')
 _K = TypeVar('_K')
 _V = TypeVar('_V')
 _T_cov = TypeVar('_T_cov', covariant=True)
 _T_contra = TypeVar('_T_contra', contravariant=True)
-
-_primitive_types = [ type(None), bool, int, float, str ]
 
 # def clone(value: _T, deep=False) -> _T:
 #     if is_primitive(value):
@@ -262,7 +260,7 @@ class Clonable(Protocol):
 
 def clone(value: _T, deep = False) -> _T:
 
-    for cls in _primitive_types:
+    for cls in primitive_types:
         if isinstance(value, cls):
             return value
 

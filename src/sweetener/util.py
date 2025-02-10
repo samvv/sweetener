@@ -6,6 +6,8 @@ from functools import reduce, wraps
 _next_type_id = 0
 _type_index = dict()
 
+primitive_types = [ type(None), bool, int, float, complex, str ]
+
 def register_type(ty: type) -> None:
     global _next_type_id
     index = _next_type_id

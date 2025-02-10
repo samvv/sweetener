@@ -6,7 +6,7 @@ from typing import Any, Callable, Generator, TypeAliasType, TypeVar, cast
 
 from sweetener.logging import warn
 from sweetener.ops import lift_key
-from sweetener.util import make_comparator
+from sweetener.util import make_comparator, primitive_types
 
 _T = TypeVar('_T')
 
@@ -63,37 +63,49 @@ def coerce(value: object, ty: type[_T]) -> _T:
         return value
 
     has_none = False
-    has_non_cls = False
-    classes = []
+    has_non_type = False
+    types = []
 
     for ty in _get_all_types(ty):
         origin = typing.get_origin(ty)
         if ty is type(None):
             has_none = True
         elif origin is None:
-            classes.append(ty)
+            types.append(ty)
         elif origin is not None:
-            classes.append(origin)
+            types.append(origin)
         else:
-            has_non_cls = True
+            has_non_type = True
 
-    if has_non_cls:
+    if has_non_type:
         raise CoercionError(f'could not coerce {value} to {ty} because {arg} contains unrecognised types') # type: ignore
 
-    if not classes:
+    if not types:
         raise CoercionError(f'could not coerce {value} to {ty} because there are no classes to coerce to')
-    if len(classes) == 1:
-        cls = classes[0]
-    else:
-        cls = _get_common_superclass(classes)
-        if cls is None:
-            raise CoercionError(f'could not coerce {value} to {ty} because {ty} do not all have any superclasses in common')
 
-    attempts = []
+    attempts = list[tuple[Any, CoerceFn]]()
+    remaining = list[Any]()
 
-    for cls_2, proc in _class_coercions:
-        if cls is cls_2 or issubclass(cls, cls_2):
-            attempts.append((cls, proc))
+    # Scan all registered coercion functions for matching types
+    for cls in types:
+        if cls in primitive_types and isinstance(value, cls):
+            return cast(_T, value)
+        match = False
+        for cls_2, proc in _class_coercions:
+            if cls is cls_2 or issubclass(cls, cls_2):
+                attempts.append((cls, proc))
+                match = True
+        if not match:
+            remaining.append(cls)
+
+    # Whatever classes that failed to match may have a superclass in common
+    # We scan the registered coercion functions again but now with this superclass
+    if remaining:
+        cls = _get_common_superclass(remaining)
+        if cls is not None:
+            for cls_2, proc in _class_coercions:
+                if cls is cls_2 or issubclass(cls, cls_2):
+                    attempts.append((cls, proc))
 
     attempts.sort(key=lift_key(cmp_to_key(make_comparator(issubclass)), 0))
 

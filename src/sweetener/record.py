@@ -6,7 +6,7 @@ from typing import Any, Iterable, Self, TypeVar, cast
 from sweetener.typing import CoercionError, add_coercion, coerce, satisfies_type
 
 from .ops import clone
-from .util import get_class_name, get_type_index, pretty_enumerate, reflect
+from .util import get_class_name, get_type_index, pretty_enumerate, reflect, primitive_types
 
 _T = TypeVar('_T')
 
@@ -136,7 +136,7 @@ def transform(value: _T, proc) -> _T:
     if new_value != value:
         return new_value
 
-    for cls in _primitive_types:
+    for cls in primitive_types:
         if isinstance(value, cls):
             return value
 
