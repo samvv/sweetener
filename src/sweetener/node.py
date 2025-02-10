@@ -1,6 +1,7 @@
 
 from collections import deque
 from typing import Any, Generator, Literal
+from warnings import warn
 
 from .util import first, last
 from .record import Record
