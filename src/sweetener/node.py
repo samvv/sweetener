@@ -29,20 +29,13 @@ def preorder(root, expand=expand):
         for _key, value in reversed(list(expand(node))):
             stack.append(value)
 
-def preorder_with_paths(root, expand=expand):
-    stack = [ (None, root, 0) ]
+def preorder_with_paths(root: 'BaseNode', expand=expand):
+    stack = [ ([], root) ]
     while stack:
-        n = len(stack)
-        path = []
-        while n > 0:
-            n -= 1
-            key, _, i = stack[n]
-            path.append(key)
-            n -= i
-        _, node, _ = stack.pop()
+        path, node = stack.pop()
         yield path, node
-        for k, (key, value) in enumerate(expand(node)):
-            stack.append((key, value, k))
+        for (key, value) in expand(node):
+            stack.append((path + [ key ], value))
 
 def postorder(root, expand):
     stack_1 = [root]
