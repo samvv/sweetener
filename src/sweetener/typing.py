@@ -1,5 +1,5 @@
 
-from functools import cmp_to_key
+from functools import _lru_cache_wrapper, cmp_to_key
 import types
 import typing
 from typing import Any, Callable, Generator, TypeAliasType, TypeVar, cast
@@ -68,6 +68,9 @@ def coerce(value: object, ty: type[_T]) -> _T:
 
     for ty in _get_all_types(ty):
         origin = typing.get_origin(ty)
+        if ty in primitive_types and isinstance(value, ty):
+            # Fast path for primitive types
+            return cast(_T, value)
         if ty is type(None):
             has_none = True
         elif origin is None:
@@ -88,8 +91,6 @@ def coerce(value: object, ty: type[_T]) -> _T:
 
     # Scan all registered coercion functions for matching types
     for cls in types:
-        if cls in primitive_types and isinstance(value, cls):
-            return cast(_T, value)
         match = False
         for cls_2, proc in _class_coercions:
             if cls is cls_2 or issubclass(cls, cls_2):
