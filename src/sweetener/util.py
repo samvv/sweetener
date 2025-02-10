@@ -61,7 +61,7 @@ def foldr(func: Callable[[_T, _A], _A], xs: Sequence[_T], acc: _A) -> _A:
 class _ToStr(Protocol):
     def __str__(self) -> str: ...
 
-def pretty_enum(elements: Iterable[_ToStr], default='nothing') -> str:
+def pretty_enumerate(elements: Iterable[_ToStr], default='nothing') -> str:
     elements = iter(elements)
     try:
         element = next(elements)
